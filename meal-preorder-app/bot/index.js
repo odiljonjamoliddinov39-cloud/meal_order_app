@@ -1,0 +1,33 @@
+import dotenv from 'dotenv';
+import TelegramBot from 'node-telegram-bot-api';
+
+dotenv.config();
+
+const token = process.env.BOT_TOKEN;
+const miniAppUrl = process.env.MINI_APP_URL || 'http://localhost:5173/web';
+
+if (!token) {
+  throw new Error('BOT_TOKEN is required');
+}
+
+const bot = new TelegramBot(token, { polling: true });
+
+bot.onText(/\/start/, async (msg) => {
+  await bot.sendMessage(msg.chat.id, 'Welcome 👋 Open the meal menu below.', {
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: 'Open Meal App',
+          web_app: { url: miniAppUrl }
+        }
+      ]]
+    }
+  });
+});
+
+bot.on('message', async (msg) => {
+  if (msg.text && msg.text.startsWith('/')) return;
+  await bot.sendMessage(msg.chat.id, 'Use /start to open the Mini App.');
+});
+
+console.log('Telegram bot is running');

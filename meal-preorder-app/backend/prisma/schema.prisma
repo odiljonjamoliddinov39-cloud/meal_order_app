@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id           String      @id @default(cuid())
+  telegramId   String?     @unique
+  fullName     String
+  username     String?
+  phone        String?
+  passwordHash String?
+  role         UserRole    @default(CUSTOMER)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  orders       Order[]
+}
+
+model MenuDay {
+  id            String     @id @default(cuid())
+  date          DateTime   @unique
+  isOpen        Boolean    @default(true)
+  orderDeadline DateTime
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  items         MenuItem[]
+  orders        Order[]
+}
+
+model MenuItem {
+  id              String      @id @default(cuid())
+  menuDayId       String
+  name            String
+  description     String?
+  imageUrl        String?
+  price           Decimal     @db.Decimal(10, 2)
+  plannedQuantity Int
+  orderedQuantity Int         @default(0)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  menuDay         MenuDay     @relation(fields: [menuDayId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+
+  @@index([menuDayId])
+}
+
+model Order {
+  id          String       @id @default(cuid())
+  userId      String
+  menuDayId   String
+  totalAmount Decimal      @db.Decimal(10, 2)
+  status      OrderStatus  @default(CONFIRMED)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuDay     MenuDay      @relation(fields: [menuDayId], references: [id], onDelete: Cascade)
+  items       OrderItem[]
+
+  @@index([userId])
+  @@index([menuDayId])
+}
+
+model OrderItem {
+  id               String    @id @default(cuid())
+  orderId          String
+  menuItemId       String
+  quantity         Int
+  priceAtOrderTime Decimal   @db.Decimal(10, 2)
+  subtotal         Decimal   @db.Decimal(10, 2)
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem         MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
