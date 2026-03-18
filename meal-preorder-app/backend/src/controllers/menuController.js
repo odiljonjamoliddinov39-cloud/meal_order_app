@@ -49,10 +49,22 @@ export async function createMenuDay(req, res) {
     return res.status(400).json({ message: 'Invalid payload', errors: parsed.error.flatten() });
   }
 
+  const date = new Date(parsed.data.date);
+  const orderDeadline = new Date(parsed.data.orderDeadline);
+
+  // Check if a menu day already exists for this date
+  const existingDay = await prisma.menuDay.findFirst({
+    where: { date: date }
+  });
+
+  if (existingDay) {
+    return res.status(409).json({ message: 'A menu day already exists for this date' });
+  }
+
   const day = await prisma.menuDay.create({
     data: {
-      date: new Date(parsed.data.date),
-      orderDeadline: new Date(parsed.data.orderDeadline),
+      date: date,
+      orderDeadline: orderDeadline,
       isOpen: parsed.data.isOpen
     }
   });
