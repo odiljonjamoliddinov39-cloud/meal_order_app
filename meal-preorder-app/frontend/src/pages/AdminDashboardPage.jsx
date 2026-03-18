@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+
 
 export default function AdminDashboardPage() {
   const [days, setDays] = useState([]);
@@ -8,6 +10,7 @@ export default function AdminDashboardPage() {
   const [currentStep, setCurrentStep] = useState(1); // 1: Overview, 2: Create Day, 3: Create Items, 4: View Orders
   const [dayForm, setDayForm] = useState({ date: '', orderDeadline: '' });
   const [itemForm, setItemForm] = useState({ menuDayId: '', name: '', price: 0, plannedQuantity: 1 });
+  const navigate = useNavigate();
 
   const token = localStorage.getItem('admin_token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -15,6 +18,11 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  function handleLogout() {
+    localStorage.removeItem('admin_token');
+    navigate('/admin/login');
+  }
 
   async function fetchData() {
     try {
@@ -64,7 +72,10 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="page admin-page">
-      <h1>Admin Portal</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Admin Portal</h1>
+        <button className="btn-secondary" onClick={handleLogout}>Logout</button>
+      </div>
       <p className="muted">Manage your meal ordering system step by step.</p>
 
       {/* Step Navigation */}
