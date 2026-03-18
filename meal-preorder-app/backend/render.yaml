@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: meal-order-api
+    runtime: node
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromSecret: database_url
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_SEED_EMAIL
+        value: admin@example.com
+      - key: ADMIN_SEED_PASSWORD
+        value: 12345678
+      - key: MINI_APP_URL
+        value: https://brunchorder.netlify.app
+      - key: TELEGRAM_BOT_TOKEN
+        fromSecret: telegram_bot_token
