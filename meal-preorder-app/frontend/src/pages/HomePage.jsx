@@ -1,22 +1,8 @@
-import { useEffect, useState } from 'react';
-import api from '../api/client.js';
-import MealCard from '../components/MealCard.jsx';
+import React from 'react';
 import '../styles/app.css';
 
 export default function HomePage() {
-  const [meals, setMeals] = useState([]);
-  const [categories, setCategories] = useState(['Meal', 'Coffee', 'Drinks', 'Dessert']);
-  const [selectedCategory, setSelectedCategory] = useState('Meal');
-
-  useEffect(() => {
-    api.get('/menu/items').then((res) => {
-      setMeals(res.data);
-    }).catch((err) => {
-      console.error('Error fetching meals:', err);
-    });
-  }, []);
-
-  const filteredMeals = meals.filter(meal => meal.category === selectedCategory);
+  const categories = ['Meal', 'Coffee', 'Drinks', 'Dessert'];
 
   return (
     <div className="customer-page">
@@ -24,11 +10,7 @@ export default function HomePage() {
         <button className="language-toggle">ENG</button>
         <nav className="category-nav">
           {categories.map((category) => (
-            <button
-              key={category}
-              className={`category-btn ${selectedCategory === category ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(category)}
-            >
+            <button key={category} className="category-btn">
               {category}
             </button>
           ))}
@@ -36,8 +18,17 @@ export default function HomePage() {
       </header>
 
       <div className="meal-grid">
-        {filteredMeals.map((meal) => (
-          <MealCard key={meal.id} item={meal} />
+        {[1, 2, 3, 4].map((item) => (
+          <div key={item} className="meal-card">
+            <div className="meal-image">
+              <img src="/path/to/meal-image.jpg" alt="Meal" />
+            </div>
+            <div className="quantity-control">
+              <button className="quantity-btn">-</button>
+              <span className="quantity">1</span>
+              <button className="quantity-btn">+</button>
+            </div>
+          </div>
         ))}
       </div>
 
@@ -47,6 +38,10 @@ export default function HomePage() {
         <button className="nav-btn">📅</button>
         <button className="nav-btn">☰</button>
       </footer>
+
+      <div className="order-summary">
+        <p>Ordered meals and drinks</p>
+      </div>
     </div>
   );
 }
