@@ -1,13 +1,57 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import api from '../api/client.js';
 
-const STORAGE_CART_KEY = 'meal_preorder_cart_v1';
-const STORAGE_ORDERS_KEY = 'meal_preorder_orders_v1';
+const STORAGE_CART_KEY = 'meal_preorder_cart_v2';
+
+const labels = {
+  ENG: {
+    title: 'Cart',
+    subtitle: 'Review your selected items',
+    back: 'Back',
+    empty: 'Your cart is empty',
+    emptyText: 'Add items from the menu first.',
+    goMenu: 'Go to menu',
+    subtotal: 'Subtotal',
+    placeOrder: 'Place Order',
+    clearCart: 'Clear Cart',
+    ordered: 'Order placed successfully',
+    failed: 'Failed to place order',
+    cartMismatch: 'Cart contains mixed or invalid day data. Re-add items from one day.',
+  },
+  RUS: {
+    title: 'Корзина',
+    subtitle: 'Проверьте выбранные позиции',
+    back: 'Назад',
+    empty: 'Корзина пуста',
+    emptyText: 'Сначала добавьте позиции из меню.',
+    goMenu: 'Перейти в меню',
+    subtotal: 'Сумма',
+    placeOrder: 'Оформить заказ',
+    clearCart: 'Очистить корзину',
+    ordered: 'Заказ успешно создан',
+    failed: 'Не удалось создать заказ',
+    cartMismatch: 'В корзине смешаны или неверные данные дня. Добавьте заново товары одного дня.',
+  },
+  UZB: {
+    title: 'Savat',
+    subtitle: 'Tanlangan mahsulotlarni tekshiring',
+    back: 'Orqaga',
+    empty: 'Savatcha bo‘sh',
+    emptyText: 'Avval menyudan mahsulot qo‘shing.',
+    goMenu: 'Menyuga o‘tish',
+    subtotal: 'Jami',
+    placeOrder: 'Buyurtma berish',
+    clearCart: 'Savatni tozalash',
+    ordered: 'Buyurtma muvaffaqiyatli yaratildi',
+    failed: 'Buyurtma yaratilmadi',
+    cartMismatch: 'Savatchada turli kun yoki noto‘g‘ri ma’lumotlar bor. Bitta kun uchun qayta qo‘shing.',
+  },
+};
 
 function readCart() {
   try {
-    const raw = localStorage.getItem(STORAGE_CART_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return JSON.parse(localStorage.getItem(STORAGE_CART_KEY) || '[]');
   } catch {
     return [];
   }
@@ -17,26 +61,17 @@ function writeCart(cart) {
   localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart));
 }
 
-function readOrders() {
-  try {
-    const raw = localStorage.getItem(STORAGE_ORDERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeOrders(orders) {
-  localStorage.setItem(STORAGE_ORDERS_KEY, JSON.stringify(orders));
-}
-
 function formatPrice(value) {
   return `${Number(value).toLocaleString('ru-RU')} so'm`;
 }
 
 export default function CartPage() {
-  const [cart, setCart] = useState([]);
+  const { language } = useOutletContext();
+  const l = labels[language] || labels.ENG;
+
+  const [cart, setCart] = useState(readCart());
   const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,73 +79,79 @@ export default function CartPage() {
   }, []);
 
   const subtotal = useMemo(
-    () => cart.reduce((sum, item) => sum + item.price * item.qty, 0),
+    () => cart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0),
     [cart]
   );
 
-  const serviceFee = cart.length ? 5000 : 0;
-  const total = subtotal + serviceFee;
-
-  const updateQty = (id, diff) => {
-    const nextCart = readCart()
-      .map((item) =>
-        item.id === id ? { ...item, qty: Math.max(0, item.qty + diff) } : item
-      )
+  function updateQty(id, diff) {
+    const next = readCart()
+      .map((item) => (item.id === id ? { ...item, qty: Math.max(0, item.qty + diff) } : item))
       .filter((item) => item.qty > 0);
 
-    writeCart(nextCart);
-    setCart(nextCart);
-  };
+    writeCart(next);
+    setCart(next);
+  }
 
-  const clearCart = () => {
+  function clearCart() {
     writeCart([]);
     setCart([]);
-    setMessage('Cart cleared');
-  };
+    setMessage('');
+  }
 
-  const placeDemoOrder = () => {
-    if (!cart.length) {
-      setMessage('Cart is empty');
+  async function placeOrder() {
+    if (!cart.length || submitting) return;
+
+    const firstDayId = cart[0]?.menuDayId;
+    const sameDay = cart.every((item) => item.menuDayId === firstDayId && item.menuItemId);
+
+    if (!sameDay) {
+      setMessage(l.cartMismatch);
       return;
     }
 
-    const orders = readOrders();
+    try {
+      setSubmitting(true);
+      setMessage('');
 
-    const newOrder = {
-      id: `ORD-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      status: 'Pending',
-      totalAmount: total,
-      items: cart,
-    };
+      await api.post('/orders', {
+        menuDayId: firstDayId,
+        items: cart.map((item) => ({
+          menuItemId: item.menuItemId,
+          quantity: item.qty,
+        })),
+      });
 
-    const nextOrders = [newOrder, ...orders];
-    writeOrders(nextOrders);
-    writeCart([]);
-    setCart([]);
-    navigate('/web/orders');
-  };
+      writeCart([]);
+      setCart([]);
+      navigate('/web/orders', { state: { success: l.ordered } });
+    } catch (error) {
+      const backendMessage = error?.response?.data?.message;
+      setMessage(backendMessage || l.failed);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div style={styles.page}>
-      <div style={styles.phone}>
-        <div style={styles.headerRow}>
-          <div>
-            <div style={styles.heading}>Cart</div>
-            <div style={styles.subheading}>Review your selected items</div>
-          </div>
-          <Link to="/web" style={styles.backLink}>
-            ← Back
-          </Link>
+      <div style={styles.headerRow}>
+        <div>
+          <div style={styles.heading}>{l.title}</div>
+          <div style={styles.subheading}>{l.subtitle}</div>
         </div>
+        <Link to="/web" style={styles.backLink}>
+          ← {l.back}
+        </Link>
+      </div>
 
+      <div style={styles.body}>
         {cart.length ? (
           <>
             <div style={styles.list}>
               {cart.map((item) => (
                 <div key={item.id} style={styles.card}>
                   <div style={styles.left}>
-                    <div style={styles.itemEmoji}>{item.emoji}</div>
+                    <div style={styles.itemEmoji}>{item.emoji || '🍽️'}</div>
                     <div>
                       <div style={styles.itemName}>{item.name}</div>
                       <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
@@ -119,23 +160,11 @@ export default function CartPage() {
 
                   <div style={styles.right}>
                     <div style={styles.counter}>
-                      <button
-                        style={styles.counterBtn}
-                        onClick={() => updateQty(item.id, -1)}
-                      >
-                        −
-                      </button>
+                      <button style={styles.counterBtn} onClick={() => updateQty(item.id, -1)}>−</button>
                       <span style={styles.counterValue}>{item.qty}</span>
-                      <button
-                        style={styles.counterBtn}
-                        onClick={() => updateQty(item.id, 1)}
-                      >
-                        +
-                      </button>
+                      <button style={styles.counterBtn} onClick={() => updateQty(item.id, 1)}>+</button>
                     </div>
-                    <div style={styles.lineTotal}>
-                      {formatPrice(item.price * item.qty)}
-                    </div>
+                    <div style={styles.lineTotal}>{formatPrice(Number(item.price) * item.qty)}</div>
                   </div>
                 </div>
               ))}
@@ -143,56 +172,29 @@ export default function CartPage() {
 
             <div style={styles.summary}>
               <div style={styles.summaryRow}>
-                <span>Subtotal</span>
+                <span>{l.subtotal}</span>
                 <strong>{formatPrice(subtotal)}</strong>
               </div>
-              <div style={styles.summaryRow}>
-                <span>Service fee</span>
-                <strong>{formatPrice(serviceFee)}</strong>
-              </div>
-              <div style={{ ...styles.summaryRow, ...styles.summaryTotal }}>
-                <span>Total</span>
-                <strong>{formatPrice(total)}</strong>
-              </div>
 
-              <button style={styles.primaryBtn} onClick={placeDemoOrder}>
-                Place Demo Order
+              <button style={styles.primaryBtn} onClick={placeOrder} disabled={submitting}>
+                {submitting ? '...' : l.placeOrder}
               </button>
               <button style={styles.secondaryBtn} onClick={clearCart}>
-                Clear Cart
+                {l.clearCart}
               </button>
+
+              {message ? <div style={styles.message}>{message}</div> : null}
             </div>
           </>
         ) : (
           <div style={styles.emptyBox}>
-            <div style={styles.emptyTitle}>Your cart is empty</div>
-            <div style={styles.emptyText}>
-              Add some meals, drinks, coffee or dessert from the home page.
-            </div>
+            <div style={styles.emptyTitle}>{l.empty}</div>
+            <div style={styles.emptyText}>{l.emptyText}</div>
             <Link to="/web" style={styles.emptyAction}>
-              Go to menu
+              {l.goMenu}
             </Link>
           </div>
         )}
-
-        {message ? <div style={styles.message}>{message}</div> : null}
-
-        <div style={styles.bottomNav}>
-          <Link to="/web" style={styles.navItem}>
-            <span style={styles.navIcon}>⌂</span>
-            <span style={styles.navLabel}>Home</span>
-          </Link>
-
-          <Link to="/web/cart" style={{ ...styles.navItem, ...styles.navActive }}>
-            <span style={styles.navIcon}>🛒</span>
-            <span style={styles.navLabel}>Cart</span>
-          </Link>
-
-          <Link to="/web/orders" style={styles.navItem}>
-            <span style={styles.navIcon}>☰</span>
-            <span style={styles.navLabel}>Orders</span>
-          </Link>
-        </div>
       </div>
     </div>
   );
@@ -200,30 +202,16 @@ export default function CartPage() {
 
 const styles = {
   page: {
-    minHeight: '100vh',
-    background: 'linear-gradient(180deg, #8be9ea 0%, #59d9e0 100%)',
+    flex: 1,
+    minHeight: 0,
     display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '20px 10px',
-    fontFamily: 'Inter, system-ui, sans-serif',
-  },
-  phone: {
-    width: '100%',
-    maxWidth: '420px',
-    minHeight: '820px',
-    background: 'linear-gradient(180deg, #79e4e8 0%, #57d6df 100%)',
-    borderRadius: '34px',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
-    padding: '22px 16px 110px',
-    position: 'relative',
-    overflow: 'hidden',
+    flexDirection: 'column',
+    gap: '12px',
   },
   headerRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: '18px',
     gap: '12px',
   },
   heading: {
@@ -245,10 +233,21 @@ const styles = {
     padding: '10px 14px',
     borderRadius: '999px',
   },
-  list: {
+  body: {
+    flex: 1,
+    minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
     gap: '12px',
+  },
+  list: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    paddingRight: '2px',
   },
   card: {
     background: '#ffffff',
@@ -323,7 +322,6 @@ const styles = {
     fontSize: '14px',
   },
   summary: {
-    marginTop: '18px',
     background: 'rgba(255,255,255,0.92)',
     borderRadius: '24px',
     padding: '16px',
@@ -335,13 +333,8 @@ const styles = {
     alignItems: 'center',
     color: '#105760',
     marginBottom: '12px',
-    fontWeight: 600,
-  },
-  summaryTotal: {
-    fontSize: '18px',
-    marginTop: '6px',
-    paddingTop: '12px',
-    borderTop: '1px solid #d7f0f5',
+    fontWeight: 700,
+    fontSize: '16px',
   },
   primaryBtn: {
     width: '100%',
@@ -366,6 +359,15 @@ const styles = {
     cursor: 'pointer',
     marginTop: '10px',
     fontSize: '15px',
+  },
+  message: {
+    marginTop: '12px',
+    background: '#eaf8fb',
+    color: '#155c66',
+    borderRadius: '14px',
+    padding: '10px 12px',
+    textAlign: 'center',
+    fontWeight: 700,
   },
   emptyBox: {
     background: 'rgba(255,255,255,0.9)',
@@ -393,47 +395,5 @@ const styles = {
     fontWeight: 800,
     padding: '12px 18px',
     borderRadius: '16px',
-  },
-  message: {
-    marginTop: '12px',
-    background: '#eaf8fb',
-    color: '#155c66',
-    borderRadius: '14px',
-    padding: '10px 12px',
-    textAlign: 'center',
-    fontWeight: 700,
-  },
-  bottomNav: {
-    position: 'absolute',
-    left: '16px',
-    right: '16px',
-    bottom: '16px',
-    background: '#fff',
-    borderRadius: '22px',
-    padding: '12px 8px',
-    display: 'flex',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    boxShadow: '0 12px 26px rgba(0,0,0,0.12)',
-  },
-  navItem: {
-    textDecoration: 'none',
-    color: '#7aa3ab',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-    minWidth: '72px',
-    fontWeight: 700,
-  },
-  navActive: {
-    color: '#1a93f1',
-  },
-  navIcon: {
-    fontSize: '20px',
-    lineHeight: 1,
-  },
-  navLabel: {
-    fontSize: '12px',
   },
 };

@@ -1,81 +1,69 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
+import api from '../api/client.js';
 
-const STORAGE_CART_KEY = 'meal_preorder_cart_v1';
+const STORAGE_CART_KEY = 'meal_preorder_cart_v2';
 
-const categories = ['Meal', 'Coffee', 'Drinks', 'Dessert'];
-
-const menuItems = [
-  {
-    id: 'meal-1',
-    name: 'Chicken Meal',
-    category: 'Meal',
-    price: 28000,
-    emoji: '🍗',
-    gradient: 'linear-gradient(135deg, #ffd36e 0%, #ff9f43 100%)',
+const labels = {
+  ENG: {
+    allDays: 'Available Days',
+    todayMenu: 'Menu',
+    yourOrder: 'Your Order',
+    selected: 'selected',
+    emptyOrder: 'Choose items from the menu',
+    loading: 'Loading menu...',
+    failed: 'Failed to load menu',
+    noDays: 'No menu day found',
+    noItems: 'No active items for this day',
+    meal: 'Meal',
+    coffee: 'Coffee',
+    drinks: 'Drinks',
+    dessert: 'Dessert',
+    account: 'Account',
+    cart: 'Cart',
+    orders: 'Orders',
   },
-  {
-    id: 'meal-2',
-    name: 'Burger Combo',
-    category: 'Meal',
-    price: 32000,
-    emoji: '🍔',
-    gradient: 'linear-gradient(135deg, #ffcf7d 0%, #ff7f50 100%)',
+  RUS: {
+    allDays: 'Доступные дни',
+    todayMenu: 'Меню',
+    yourOrder: 'Ваш заказ',
+    selected: 'выбрано',
+    emptyOrder: 'Выберите позиции из меню',
+    loading: 'Загрузка меню...',
+    failed: 'Не удалось загрузить меню',
+    noDays: 'Дни меню не найдены',
+    noItems: 'Нет активных блюд на этот день',
+    meal: 'Еда',
+    coffee: 'Кофе',
+    drinks: 'Напитки',
+    dessert: 'Десерт',
+    account: 'Аккаунт',
+    cart: 'Корзина',
+    orders: 'Заказы',
   },
-  {
-    id: 'coffee-1',
-    name: 'Latte',
-    category: 'Coffee',
-    price: 18000,
-    emoji: '☕',
-    gradient: 'linear-gradient(135deg, #d9c2a3 0%, #a67c52 100%)',
+  UZB: {
+    allDays: 'Mavjud kunlar',
+    todayMenu: 'Menyu',
+    yourOrder: 'Buyurtmangiz',
+    selected: 'tanlandi',
+    emptyOrder: 'Menyudan mahsulot tanlang',
+    loading: 'Menyu yuklanmoqda...',
+    failed: 'Menyuni yuklab bo‘lmadi',
+    noDays: 'Menyu kuni topilmadi',
+    noItems: 'Bu kunda faol mahsulot yo‘q',
+    meal: 'Ovqat',
+    coffee: 'Qahva',
+    drinks: 'Ichimlik',
+    dessert: 'Shirinlik',
+    account: 'Akkaunt',
+    cart: 'Savat',
+    orders: 'Buyurtmalar',
   },
-  {
-    id: 'coffee-2',
-    name: 'Iced Coffee',
-    category: 'Coffee',
-    price: 20000,
-    emoji: '🧋',
-    gradient: 'linear-gradient(135deg, #d7ccc8 0%, #8d6e63 100%)',
-  },
-  {
-    id: 'drink-1',
-    name: 'Fresh Juice',
-    category: 'Drinks',
-    price: 16000,
-    emoji: '🧃',
-    gradient: 'linear-gradient(135deg, #ffe082 0%, #ff7043 100%)',
-  },
-  {
-    id: 'drink-2',
-    name: 'Cold Drink',
-    category: 'Drinks',
-    price: 14000,
-    emoji: '🥤',
-    gradient: 'linear-gradient(135deg, #90caf9 0%, #81c784 100%)',
-  },
-  {
-    id: 'dessert-1',
-    name: 'Chocolate Cake',
-    category: 'Dessert',
-    price: 22000,
-    emoji: '🍰',
-    gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
-  },
-  {
-    id: 'dessert-2',
-    name: 'Ice Cream',
-    category: 'Dessert',
-    price: 17000,
-    emoji: '🍨',
-    gradient: 'linear-gradient(135deg, #c3cfe2 0%, #f5f7fa 100%)',
-  },
-];
+};
 
 function readCart() {
   try {
-    const raw = localStorage.getItem(STORAGE_CART_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return JSON.parse(localStorage.getItem(STORAGE_CART_KEY) || '[]');
   } catch {
     return [];
   }
@@ -89,171 +77,330 @@ function formatPrice(value) {
   return `${Number(value).toLocaleString('ru-RU')} so'm`;
 }
 
-function getQty(cart, id) {
-  return cart.find((item) => item.id === id)?.qty || 0;
+function detectCategory(item) {
+  const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
+
+  if (text.includes('coffee') || text.includes('latte') || text.includes('espresso') || text.includes('капуч') || text.includes('коф')) {
+    return 'coffee';
+  }
+  if (text.includes('cake') || text.includes('ice cream') || text.includes('dessert') || text.includes('торт') || text.includes('морож')) {
+    return 'dessert';
+  }
+  if (text.includes('juice') || text.includes('cola') || text.includes('drink') || text.includes('water') || text.includes('чай') || text.includes('напит')) {
+    return 'drinks';
+  }
+  return 'meal';
+}
+
+function getEmoji(item) {
+  const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
+  if (text.includes('coffee') || text.includes('латте') || text.includes('коф')) return '☕';
+  if (text.includes('juice')) return '🧃';
+  if (text.includes('cola') || text.includes('drink')) return '🥤';
+  if (text.includes('cake') || text.includes('dessert') || text.includes('торт')) return '🍰';
+  if (text.includes('ice cream') || text.includes('морож')) return '🍨';
+  if (text.includes('burger')) return '🍔';
+  if (text.includes('chicken')) return '🍗';
+  return '🍽️';
+}
+
+function getGradient(item) {
+  const category = detectCategory(item);
+  if (category === 'coffee') return 'linear-gradient(135deg, #d8c3a5 0%, #a67c52 100%)';
+  if (category === 'dessert') return 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)';
+  if (category === 'drinks') return 'linear-gradient(135deg, #8fd3f4 0%, #84fab0 100%)';
+  return 'linear-gradient(135deg, #ffd36e 0%, #ff9f43 100%)';
+}
+
+function formatDate(dateString) {
+  const d = new Date(dateString);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 export default function HomePage() {
-  const [activeCategory, setActiveCategory] = useState('Meal');
-  const [cart, setCart] = useState([]);
+  const { language } = useOutletContext();
+  const l = labels[language] || labels.ENG;
 
-  useEffect(() => {
-    setCart(readCart());
-  }, []);
+  const [days, setDays] = useState([]);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [menuDayId, setMenuDayId] = useState('');
+  const [items, setItems] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('meal');
+  const [cart, setCart] = useState(readCart());
+  const [loadingDays, setLoadingDays] = useState(true);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [error, setError] = useState('');
 
-  const filteredItems = useMemo(
-    () => menuItems.filter((item) => item.category === activeCategory),
-    [activeCategory]
+  const categories = useMemo(
+    () => [
+      { key: 'meal', label: l.meal },
+      { key: 'coffee', label: l.coffee },
+      { key: 'drinks', label: l.drinks },
+      { key: 'dessert', label: l.dessert },
+    ],
+    [l]
   );
 
-  const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
-  const totalPrice = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  useEffect(() => {
+    let mounted = true;
 
-  const changeQty = (product, diff) => {
-    const currentCart = readCart();
-    const existing = currentCart.find((item) => item.id === product.id);
+    async function loadDays() {
+      try {
+        setLoadingDays(true);
+        setError('');
+        const res = await api.get('/menu/days');
+        if (!mounted) return;
 
-    let nextCart;
+        const safeDays = Array.isArray(res.data) ? res.data.filter((d) => d.isOpen) : [];
+        setDays(safeDays);
+
+        if (safeDays.length) {
+          const firstDate = new Date(safeDays[0].date).toISOString().slice(0, 10);
+          setSelectedDate(firstDate);
+          setMenuDayId(safeDays[0].id);
+        }
+      } catch (err) {
+        if (!mounted) return;
+        setError(l.failed);
+      } finally {
+        if (mounted) setLoadingDays(false);
+      }
+    }
+
+    loadDays();
+    return () => {
+      mounted = false;
+    };
+  }, [l.failed]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!selectedDate) return;
+
+    async function loadItems() {
+      try {
+        setLoadingItems(true);
+        setError('');
+        const res = await api.get(`/menu/items?date=${selectedDate}`);
+        if (!mounted) return;
+
+        const dayData = res.data || {};
+        setMenuDayId(dayData.id || '');
+        const activeItems = Array.isArray(dayData.items)
+          ? dayData.items.filter((item) => item.isActive)
+          : [];
+        setItems(activeItems);
+      } catch (err) {
+        if (!mounted) return;
+        setError(l.failed);
+        setItems([]);
+      } finally {
+        if (mounted) setLoadingItems(false);
+      }
+    }
+
+    loadItems();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedDate, l.failed]);
+
+  const filteredItems = useMemo(
+    () => items.filter((item) => detectCategory(item) === activeCategory),
+    [items, activeCategory]
+  );
+
+  const currentCart = useMemo(() => {
+    return readCart().filter((item) => item.menuDayId === menuDayId);
+  }, [cart, menuDayId]);
+
+  const cartCount = currentCart.reduce((sum, item) => sum + item.qty, 0);
+  const totalPrice = currentCart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
+
+  function getQty(id) {
+    return currentCart.find((item) => item.id === id)?.qty || 0;
+  }
+
+  function changeQty(item, diff) {
+    const raw = readCart().filter((x) => x.menuDayId === menuDayId);
+    const existing = raw.find((x) => x.id === item.id);
+    let next;
 
     if (existing) {
-      nextCart = currentCart
-        .map((item) =>
-          item.id === product.id
-            ? { ...item, qty: Math.max(0, item.qty + diff) }
-            : item
-        )
-        .filter((item) => item.qty > 0);
+      next = raw
+        .map((x) => (x.id === item.id ? { ...x, qty: Math.max(0, x.qty + diff) } : x))
+        .filter((x) => x.qty > 0);
     } else if (diff > 0) {
-      nextCart = [
-        ...currentCart,
+      next = [
+        ...raw,
         {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          emoji: product.emoji,
+          id: item.id,
+          menuItemId: item.id,
+          menuDayId,
+          date: selectedDate,
+          name: item.name,
+          description: item.description || '',
+          price: Number(item.price),
           qty: 1,
+          imageUrl: item.imageUrl || '',
+          emoji: getEmoji(item),
         },
       ];
     } else {
-      nextCart = currentCart;
+      next = raw;
     }
 
-    writeCart(nextCart);
-    setCart(nextCart);
-  };
+    writeCart(next);
+    setCart(next);
+  }
 
   return (
     <div style={styles.page}>
-      <div style={styles.phone}>
-        <div style={styles.header}>
-          <button style={styles.langButton}>ENG</button>
-        </div>
-
-        <div style={styles.tabsRow}>
-          {categories.map((category) => {
-            const isActive = activeCategory === category;
+      <div style={styles.daysRow}>
+        <div style={styles.sectionTitle}>{l.allDays}</div>
+        <div style={styles.daysChips}>
+          {days.map((day) => {
+            const dateKey = new Date(day.date).toISOString().slice(0, 10);
+            const active = selectedDate === dateKey;
             return (
               <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
+                key={day.id}
+                onClick={() => {
+                  setSelectedDate(dateKey);
+                  setMenuDayId(day.id);
+                  writeCart([]);
+                  setCart([]);
+                }}
                 style={{
-                  ...styles.tab,
-                  ...(isActive ? styles.tabActive : {}),
+                  ...styles.dayChip,
+                  ...(active ? styles.dayChipActive : {}),
                 }}
               >
-                {category}
+                {formatDate(day.date)}
               </button>
             );
           })}
         </div>
+      </div>
 
-        <div style={styles.grid}>
-          {filteredItems.map((item) => {
-            const qty = getQty(cart, item.id);
+      <div style={styles.tabsWrap}>
+        {categories.map((category) => {
+          const active = activeCategory === category.key;
+          return (
+            <button
+              key={category.key}
+              onClick={() => setActiveCategory(category.key)}
+              style={{
+                ...styles.tabButton,
+                ...(active ? styles.tabButtonActive : {}),
+              }}
+            >
+              {category.label}
+            </button>
+          );
+        })}
+      </div>
 
-            return (
-              <div key={item.id} style={styles.card}>
-                <div style={styles.cardTop}>
-                  <div
-                    style={{
-                      ...styles.imageCircle,
-                      background: item.gradient,
-                    }}
-                  >
-                    <span style={styles.emoji}>{item.emoji}</span>
-                  </div>
-                </div>
-
-                <div style={styles.itemMeta}>
-                  <div style={styles.itemName}>{item.name}</div>
-                  <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
-                </div>
-
-                <div style={styles.counter}>
-                  <button
-                    style={styles.counterBtn}
-                    onClick={() => changeQty(item, -1)}
-                  >
-                    −
-                  </button>
-                  <div style={styles.counterValue}>{qty}</div>
-                  <button
-                    style={styles.counterBtn}
-                    onClick={() => changeQty(item, 1)}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={styles.summaryBox}>
-          <div style={styles.summaryTop}>
-            <div>
-              <div style={styles.summaryTitle}>Your Order</div>
-              <div style={styles.summarySub}>
-                {cartCount ? `${cartCount} item(s) selected` : 'Ordered meals and drinks'}
-              </div>
+      <div style={styles.menuArea}>
+        <div style={styles.menuHeader}>
+          <div>
+            <div style={styles.menuTitle}>{l.todayMenu}</div>
+            <div style={styles.menuSub}>
+              {cartCount} {l.selected}
             </div>
-            <div style={styles.totalBadge}>{formatPrice(totalPrice)}</div>
           </div>
 
-          {cart.length ? (
-            <div style={styles.selectedList}>
-              {cart.slice(0, 4).map((item) => (
-                <div key={item.id} style={styles.selectedRow}>
-                  <span style={styles.selectedName}>
-                    {item.emoji} {item.name}
-                  </span>
-                  <span style={styles.selectedQty}>x{item.qty}</span>
-                </div>
-              ))}
-            </div>
+          <Link to="/web/cart" style={styles.cartBubble}>
+            🛒 {cartCount}
+          </Link>
+        </div>
+
+        <div style={styles.scrollArea}>
+          {loadingDays || loadingItems ? (
+            <div style={styles.infoBox}>{l.loading}</div>
+          ) : error ? (
+            <div style={styles.infoBox}>{error}</div>
+          ) : !days.length ? (
+            <div style={styles.infoBox}>{l.noDays}</div>
+          ) : !filteredItems.length ? (
+            <div style={styles.infoBox}>{l.noItems}</div>
           ) : (
-            <div style={styles.emptyText}>
-              Choose items from the menu to preview your order here.
+            <div style={styles.grid}>
+              {filteredItems.map((item) => {
+                const qty = getQty(item.id);
+                const imageSrc = item.imageUrl?.trim();
+                return (
+                  <div key={item.id} style={styles.card}>
+                    <div style={styles.cardVisualWrap}>
+                      <div style={{ ...styles.cardCircle, background: getGradient(item) }}>
+                        {imageSrc ? (
+                          <img src={imageSrc} alt={item.name} style={styles.foodImage} />
+                        ) : (
+                          <span style={styles.emoji}>{getEmoji(item)}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={styles.itemInfo}>
+                      <div style={styles.itemName}>{item.name}</div>
+                      <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
+                    </div>
+
+                    <div style={styles.counterWrap}>
+                      <button style={styles.counterBtn} onClick={() => changeQty(item, -1)}>
+                        −
+                      </button>
+                      <span style={styles.counterValue}>{qty}</span>
+                      <button style={styles.counterBtn} onClick={() => changeQty(item, 1)}>
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
+      </div>
 
-        <div style={styles.bottomNav}>
-          <Link to="/web" style={{ ...styles.navItem, ...styles.navActive }}>
-            <span style={styles.navIcon}>⌂</span>
-            <span style={styles.navLabel}>Home</span>
-          </Link>
-
-          <Link to="/web/cart" style={styles.navItem}>
-            <span style={styles.navIcon}>🛒</span>
-            <span style={styles.navLabel}>Cart</span>
-          </Link>
-
-          <Link to="/web/orders" style={styles.navItem}>
-            <span style={styles.navIcon}>☰</span>
-            <span style={styles.navLabel}>Orders</span>
-          </Link>
+      <div style={styles.summaryCard}>
+        <div style={styles.summaryTop}>
+          <div>
+            <div style={styles.summaryTitle}>{l.yourOrder}</div>
+            <div style={styles.summarySubtitle}>
+              {cartCount ? `${cartCount} ${l.selected}` : l.emptyOrder}
+            </div>
+          </div>
+          <div style={styles.totalBadge}>{formatPrice(totalPrice)}</div>
         </div>
+
+        <div style={styles.selectedList}>
+          {currentCart.slice(0, 3).map((item) => (
+            <div key={item.id} style={styles.selectedRow}>
+              <span style={styles.selectedName}>
+                {item.emoji} {item.name}
+              </span>
+              <span style={styles.selectedQty}>x{item.qty}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={styles.bottomNav}>
+        <button style={{ ...styles.navItem, ...styles.navActive }}>
+          <span style={styles.navIcon}>👤</span>
+          <span style={styles.navText}>{l.account}</span>
+        </button>
+
+        <Link to="/web/cart" style={styles.navItem}>
+          <span style={styles.navIcon}>🛒</span>
+          <span style={styles.navText}>{l.cart}</span>
+        </Link>
+
+        <Link to="/web/orders" style={styles.navItem}>
+          <span style={styles.navIcon}>☰</span>
+          <span style={styles.navText}>{l.orders}</span>
+        </Link>
       </div>
     </div>
   );
@@ -261,213 +408,258 @@ export default function HomePage() {
 
 const styles = {
   page: {
-    minHeight: '100vh',
-    background: 'linear-gradient(180deg, #8be9ea 0%, #59d9e0 100%)',
+    flex: 1,
+    minHeight: 0,
     display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '20px 10px',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    flexDirection: 'column',
+    gap: '10px',
   },
-  phone: {
-    width: '100%',
-    maxWidth: '420px',
-    minHeight: '820px',
-    background: 'linear-gradient(180deg, #79e4e8 0%, #57d6df 100%)',
-    borderRadius: '34px',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
-    padding: '18px 16px 110px',
-    position: 'relative',
-    overflow: 'hidden',
+  daysRow: {
+    background: 'rgba(255,255,255,0.48)',
+    borderRadius: '20px',
+    padding: '12px',
   },
-  header: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    marginBottom: '18px',
-  },
-  langButton: {
-    border: 'none',
-    background: 'rgba(255,255,255,0.55)',
-    color: '#0d5b66',
+  sectionTitle: {
+    color: '#115a64',
+    fontSize: '13px',
     fontWeight: 800,
-    padding: '8px 14px',
-    borderRadius: '999px',
-    cursor: 'pointer',
-    boxShadow: '0 8px 18px rgba(0,0,0,0.08)',
+    marginBottom: '10px',
   },
-  tabsRow: {
+  daysChips: {
     display: 'flex',
     gap: '8px',
-    flexWrap: 'wrap',
-    marginBottom: '18px',
+    overflowX: 'auto',
+    paddingBottom: '2px',
   },
-  tab: {
-    flex: 1,
-    minWidth: '84px',
+  dayChip: {
     border: 'none',
-    background: 'transparent',
-    color: '#166f7a',
-    fontWeight: 700,
     borderRadius: '999px',
-    padding: '12px 10px',
+    background: '#eefbfd',
+    color: '#145962',
+    fontWeight: 800,
+    padding: '10px 14px',
+    whiteSpace: 'nowrap',
     cursor: 'pointer',
   },
-  tabActive: {
-    background: 'rgba(255,255,255,0.75)',
-    color: '#0d5b66',
-    boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
+  dayChipActive: {
+    background: '#1a93f1',
+    color: '#ffffff',
+  },
+  tabsWrap: {
+    display: 'flex',
+    gap: '8px',
+  },
+  tabButton: {
+    flex: 1,
+    border: 'none',
+    background: 'rgba(255,255,255,0.2)',
+    color: '#12646f',
+    fontWeight: 800,
+    borderRadius: '16px',
+    padding: '12px 8px',
+    cursor: 'pointer',
+    fontSize: '13px',
+  },
+  tabButtonActive: {
+    background: '#ffffff',
+    color: '#0f5a65',
+    boxShadow: '0 8px 18px rgba(0,0,0,0.08)',
+  },
+  menuArea: {
+    flex: 1,
+    minHeight: 0,
+    background: 'rgba(255,255,255,0.22)',
+    borderRadius: '26px',
+    padding: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  menuHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '10px',
+    gap: '10px',
+  },
+  menuTitle: {
+    color: '#0f5a65',
+    fontWeight: 800,
+    fontSize: '18px',
+  },
+  menuSub: {
+    color: '#2e7881',
+    fontWeight: 700,
+    fontSize: '12px',
+  },
+  cartBubble: {
+    textDecoration: 'none',
+    background: '#ffffff',
+    color: '#0f5a65',
+    fontWeight: 800,
+    borderRadius: '14px',
+    padding: '10px 12px',
+  },
+  scrollArea: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    paddingRight: '2px',
+  },
+  infoBox: {
+    background: '#ffffff',
+    borderRadius: '18px',
+    padding: '18px',
+    color: '#145962',
+    fontWeight: 700,
+    textAlign: 'center',
   },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: '16px',
+    gap: '14px',
   },
   card: {
-    background: 'linear-gradient(180deg, #32abf4 0%, #1a8ef0 100%)',
-    borderRadius: '28px',
-    padding: '16px 14px 14px',
-    minHeight: '250px',
+    background: 'linear-gradient(180deg, #34aaf4 0%, #198ff0 100%)',
+    borderRadius: '24px',
+    padding: '14px 12px',
+    minHeight: '220px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
-    boxShadow: '0 16px 28px rgba(14, 97, 168, 0.24)',
+    boxShadow: '0 14px 24px rgba(10, 96, 176, 0.20)',
   },
-  cardTop: {
+  cardVisualWrap: {
     display: 'flex',
     justifyContent: 'center',
-    marginBottom: '14px',
+    marginBottom: '10px',
   },
-  imageCircle: {
-    width: '108px',
-    height: '108px',
+  cardCircle: {
+    width: '94px',
+    height: '94px',
     borderRadius: '50%',
-    border: '4px solid rgba(255,255,255,0.75)',
+    border: '4px solid rgba(255,255,255,0.78)',
     display: 'flex',
-    justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: 'inset 0 6px 14px rgba(255,255,255,0.25), 0 10px 18px rgba(0,0,0,0.15)',
+    justifyContent: 'center',
+    boxShadow: 'inset 0 6px 16px rgba(255,255,255,0.25), 0 10px 18px rgba(0,0,0,0.12)',
+    overflow: 'hidden',
+  },
+  foodImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
   },
   emoji: {
-    fontSize: '52px',
-    lineHeight: 1,
+    fontSize: '42px',
   },
-  itemMeta: {
+  itemInfo: {
     textAlign: 'center',
-    color: '#fff',
-    marginBottom: '12px',
+    color: '#ffffff',
+    marginBottom: '10px',
   },
   itemName: {
     fontWeight: 800,
-    fontSize: '15px',
-    marginBottom: '6px',
+    fontSize: '14px',
+    lineHeight: 1.2,
+    marginBottom: '5px',
   },
   itemPrice: {
-    fontSize: '13px',
-    fontWeight: 600,
-    opacity: 0.95,
+    fontSize: '12px',
+    fontWeight: 700,
+    opacity: 0.96,
   },
-  counter: {
+  counterWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
     background: 'rgba(255,255,255,0.16)',
     borderRadius: '999px',
-    padding: '8px 10px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '12px',
+    padding: '7px 8px',
   },
   counterBtn: {
-    width: '36px',
-    height: '36px',
+    width: '34px',
+    height: '34px',
     borderRadius: '50%',
     border: 'none',
-    background: '#fff',
-    color: '#1182d8',
-    fontSize: '24px',
+    background: '#ffffff',
+    color: '#1180d8',
+    fontSize: '22px',
     fontWeight: 800,
     cursor: 'pointer',
-    boxShadow: '0 6px 12px rgba(0,0,0,0.12)',
+    lineHeight: 1,
   },
   counterValue: {
     minWidth: '20px',
     textAlign: 'center',
-    color: '#fff',
+    color: '#ffffff',
     fontWeight: 800,
-    fontSize: '18px',
+    fontSize: '17px',
   },
-  summaryBox: {
-    marginTop: '18px',
-    background: 'rgba(255,255,255,0.9)',
-    borderRadius: '24px',
-    padding: '16px',
-    boxShadow: '0 14px 28px rgba(0,0,0,0.08)',
+  summaryCard: {
+    background: 'rgba(255,255,255,0.88)',
+    borderRadius: '22px',
+    padding: '14px',
+    boxShadow: '0 12px 22px rgba(0,0,0,0.08)',
   },
   summaryTop: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: '12px',
-    marginBottom: '12px',
+    marginBottom: '10px',
   },
   summaryTitle: {
-    color: '#155c66',
+    color: '#135e69',
+    fontSize: '16px',
     fontWeight: 800,
-    fontSize: '18px',
     marginBottom: '4px',
   },
-  summarySub: {
-    color: '#5c8790',
-    fontWeight: 600,
-    fontSize: '13px',
+  summarySubtitle: {
+    color: '#51818a',
+    fontSize: '12px',
+    fontWeight: 700,
   },
   totalBadge: {
-    background: '#1a93f1',
-    color: '#fff',
+    background: '#1993f1',
+    color: '#ffffff',
     padding: '10px 12px',
     borderRadius: '14px',
     fontWeight: 800,
-    fontSize: '13px',
+    fontSize: '12px',
     whiteSpace: 'nowrap',
   },
   selectedList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '8px',
   },
   selectedRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    background: '#eefbfd',
-    borderRadius: '14px',
+    background: '#effbfd',
+    borderRadius: '12px',
     padding: '10px 12px',
   },
   selectedName: {
-    color: '#165962',
+    color: '#145a64',
     fontWeight: 700,
-    fontSize: '14px',
+    fontSize: '13px',
   },
   selectedQty: {
-    color: '#1a93f1',
+    color: '#1993f1',
     fontWeight: 800,
-    fontSize: '14px',
-  },
-  emptyText: {
-    color: '#6c949c',
-    fontSize: '14px',
-    lineHeight: 1.5,
+    fontSize: '13px',
   },
   bottomNav: {
-    position: 'absolute',
-    left: '16px',
-    right: '16px',
-    bottom: '16px',
-    background: '#fff',
-    borderRadius: '22px',
-    padding: '12px 8px',
+    background: '#ffffff',
+    borderRadius: '20px',
+    padding: '10px 8px',
     display: 'flex',
     justifyContent: 'space-around',
     alignItems: 'center',
-    boxShadow: '0 12px 26px rgba(0,0,0,0.12)',
+    boxShadow: '0 12px 24px rgba(0,0,0,0.10)',
   },
   navItem: {
     textDecoration: 'none',
@@ -478,15 +670,17 @@ const styles = {
     gap: '4px',
     minWidth: '72px',
     fontWeight: 700,
+    border: 'none',
+    background: 'transparent',
   },
   navActive: {
-    color: '#1a93f1',
+    color: '#1892f1',
   },
   navIcon: {
-    fontSize: '20px',
+    fontSize: '18px',
     lineHeight: 1,
   },
-  navLabel: {
-    fontSize: '12px',
+  navText: {
+    fontSize: '11px',
   },
 };
