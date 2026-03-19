@@ -42,10 +42,10 @@ body {
 .date-tabs button.active { background: #f97316; color: #111827; }
 
 .meal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
-.meal-card { background: #0f172a; border: 1px solid rgba(255,255,255,0.05); border-radius: 18px; overflow: hidden; display: grid; grid-template-columns: 120px 1fr; min-height: 150px; }
-.meal-image { height: 120px; background: #1f2937; border-radius: 14px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.meal-card { background: #0f172a; border: 1px solid rgba(255,255,255,0.05); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 10px; }
+.meal-image { width: 100px; height: 100px; background: #1f2937; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .meal-image img { width: 100%; height: 100%; object-fit: cover; }
-.meal-content { padding: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+.meal-content { text-align: center; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; }
 .meal-content h3 { margin: 0; font-size: 1rem; }
 .meal-content p { margin: 6px 0; color: #cbd5e1; font-size: .8rem; }
 .meal-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; }
@@ -125,3 +125,62 @@ body {
 .message { padding: 12px 16px; border-radius: 8px; margin-top: 16px; font-weight: 500; }
 .message.success { background: #10b981; color: #064e3b; }
 .message.error { background: #ef4444; color: #7f1d1d; }
+
+.category-nav {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+}
+
+.category-btn {
+  background: #f97316;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.category-btn.active {
+  background: #fb923c;
+}
+
+.category-btn:hover {
+  background: #fb923c;
+}
+
+.bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: #0f172a;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.nav-btn:hover {
+  color: #fb923c;
+}
+
+.message {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fb923c;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+}
