@@ -22,6 +22,8 @@ const labels = {
     account: 'Account',
     cart: 'Cart',
     orders: 'Orders',
+    openCart: 'Open cart',
+    clearDayCart: 'Day changed, cart cleared',
   },
   RUS: {
     allDays: 'Доступные дни',
@@ -40,6 +42,8 @@ const labels = {
     account: 'Аккаунт',
     cart: 'Корзина',
     orders: 'Заказы',
+    openCart: 'Открыть корзину',
+    clearDayCart: 'День изменён, корзина очищена',
   },
   UZB: {
     allDays: 'Mavjud kunlar',
@@ -58,12 +62,25 @@ const labels = {
     account: 'Akkaunt',
     cart: 'Savat',
     orders: 'Buyurtmalar',
+    openCart: 'Savatni ochish',
+    clearDayCart: 'Kun o‘zgardi, savat tozalandi',
   },
 };
 
+function normalizeCart(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => ({
+      ...item,
+      qty: Math.max(1, Number(item?.qty) || 1),
+      price: Number(item?.price) || 0,
+    }))
+    .filter((item) => item?.menuItemId && item?.menuDayId);
+}
+
 function readCart() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_CART_KEY) || '[]');
+    return normalizeCart(JSON.parse(localStorage.getItem(STORAGE_CART_KEY) || '[]'));
   } catch {
     return [];
   }
@@ -74,26 +91,49 @@ function writeCart(cart) {
 }
 
 function formatPrice(value) {
-  return `${Number(value).toLocaleString('ru-RU')} so'm`;
+  return `${Number(value || 0).toLocaleString('ru-RU')} so'm`;
 }
 
 function detectCategory(item) {
   const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
 
-  if (text.includes('coffee') || text.includes('latte') || text.includes('espresso') || text.includes('капуч') || text.includes('коф')) {
+  if (
+    text.includes('coffee') ||
+    text.includes('latte') ||
+    text.includes('espresso') ||
+    text.includes('капуч') ||
+    text.includes('коф')
+  ) {
     return 'coffee';
   }
-  if (text.includes('cake') || text.includes('ice cream') || text.includes('dessert') || text.includes('торт') || text.includes('морож')) {
+
+  if (
+    text.includes('cake') ||
+    text.includes('ice cream') ||
+    text.includes('dessert') ||
+    text.includes('торт') ||
+    text.includes('морож')
+  ) {
     return 'dessert';
   }
-  if (text.includes('juice') || text.includes('cola') || text.includes('drink') || text.includes('water') || text.includes('чай') || text.includes('напит')) {
+
+  if (
+    text.includes('juice') ||
+    text.includes('cola') ||
+    text.includes('drink') ||
+    text.includes('water') ||
+    text.includes('чай') ||
+    text.includes('напит')
+  ) {
     return 'drinks';
   }
+
   return 'meal';
 }
 
 function getEmoji(item) {
   const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
+
   if (text.includes('coffee') || text.includes('латте') || text.includes('коф')) return '☕';
   if (text.includes('juice')) return '🧃';
   if (text.includes('cola') || text.includes('drink')) return '🥤';
@@ -101,20 +141,24 @@ function getEmoji(item) {
   if (text.includes('ice cream') || text.includes('морож')) return '🍨';
   if (text.includes('burger')) return '🍔';
   if (text.includes('chicken')) return '🍗';
+
   return '🍽️';
 }
 
 function getGradient(item) {
   const category = detectCategory(item);
+
   if (category === 'coffee') return 'linear-gradient(135deg, #d8c3a5 0%, #a67c52 100%)';
   if (category === 'dessert') return 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)';
   if (category === 'drinks') return 'linear-gradient(135deg, #8fd3f4 0%, #84fab0 100%)';
+
   return 'linear-gradient(135deg, #ffd36e 0%, #ff9f43 100%)';
 }
 
 function formatDate(dateString) {
   const d = new Date(dateString);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' });
 }
 
 export default function HomePage() {
@@ -130,6 +174,7 @@ export default function HomePage() {
   const [loadingDays, setLoadingDays] = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   const categories = useMemo(
     () => [
@@ -148,6 +193,8 @@ export default function HomePage() {
       try {
         setLoadingDays(true);
         setError('');
+        setMessage('');
+
         const res = await api.get('/menu/days');
         if (!mounted) return;
 
@@ -158,6 +205,10 @@ export default function HomePage() {
           const firstDate = new Date(safeDays[0].date).toISOString().slice(0, 10);
           setSelectedDate(firstDate);
           setMenuDayId(safeDays[0].id);
+        } else {
+          setSelectedDate('');
+          setMenuDayId('');
+          setItems([]);
         }
       } catch (err) {
         if (!mounted) return;
@@ -168,6 +219,7 @@ export default function HomePage() {
     }
 
     loadDays();
+
     return () => {
       mounted = false;
     };
@@ -181,6 +233,8 @@ export default function HomePage() {
       try {
         setLoadingItems(true);
         setError('');
+        setMessage('');
+
         const res = await api.get(`/menu/items?date=${selectedDate}`);
         if (!mounted) return;
 
@@ -189,7 +243,17 @@ export default function HomePage() {
         const activeItems = Array.isArray(dayData.items)
           ? dayData.items.filter((item) => item.isActive)
           : [];
+
         setItems(activeItems);
+
+        const hasMeal = activeItems.some((item) => detectCategory(item) === 'meal');
+        const hasCurrent = activeItems.some((item) => detectCategory(item) === activeCategory);
+
+        if (!hasCurrent) {
+          setActiveCategory(hasMeal ? 'meal' : categories.find((cat) =>
+            activeItems.some((item) => detectCategory(item) === cat.key)
+          )?.key || 'meal');
+        }
       } catch (err) {
         if (!mounted) return;
         setError(l.failed);
@@ -200,35 +264,45 @@ export default function HomePage() {
     }
 
     loadItems();
+
     return () => {
       mounted = false;
     };
-  }, [selectedDate, l.failed]);
+  }, [selectedDate, l.failed, activeCategory, categories]);
 
-  const filteredItems = useMemo(
-    () => items.filter((item) => detectCategory(item) === activeCategory),
-    [items, activeCategory]
-  );
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => detectCategory(item) === activeCategory);
+  }, [items, activeCategory]);
 
   const currentCart = useMemo(() => {
-    return readCart().filter((item) => item.menuDayId === menuDayId);
+    return cart.filter((item) => item.menuDayId === menuDayId);
   }, [cart, menuDayId]);
 
-  const cartCount = currentCart.reduce((sum, item) => sum + item.qty, 0);
-  const totalPrice = currentCart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
+  const cartCount = currentCart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  const totalPrice = currentCart.reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
+    0
+  );
+
+  function syncCart(next) {
+    writeCart(next);
+    setCart(next);
+  }
 
   function getQty(id) {
     return currentCart.find((item) => item.id === id)?.qty || 0;
   }
 
   function changeQty(item, diff) {
+    if (!menuDayId) return;
+
     const raw = readCart().filter((x) => x.menuDayId === menuDayId);
     const existing = raw.find((x) => x.id === item.id);
-    let next;
+    let next = raw;
 
     if (existing) {
       next = raw
-        .map((x) => (x.id === item.id ? { ...x, qty: Math.max(0, x.qty + diff) } : x))
+        .map((x) => (x.id === item.id ? { ...x, qty: Math.max(0, Number(x.qty) + diff) } : x))
         .filter((x) => x.qty > 0);
     } else if (diff > 0) {
       next = [
@@ -246,31 +320,45 @@ export default function HomePage() {
           emoji: getEmoji(item),
         },
       ];
-    } else {
-      next = raw;
     }
 
-    writeCart(next);
-    setCart(next);
+    syncCart(next);
+    setMessage('');
   }
+
+  function switchDay(day) {
+    const dateKey = new Date(day.date).toISOString().slice(0, 10);
+    const currentStored = readCart();
+    const hasOtherDayItems = currentStored.some((item) => item.menuDayId !== day.id);
+
+    setSelectedDate(dateKey);
+    setMenuDayId(day.id);
+    setActiveCategory('meal');
+
+    if (hasOtherDayItems || currentStored.length) {
+      syncCart([]);
+      setMessage(l.clearDayCart);
+    } else {
+      setMessage('');
+    }
+  }
+
+  const previewItems = currentCart.slice(0, 3);
 
   return (
     <div style={styles.page}>
       <div style={styles.daysRow}>
         <div style={styles.sectionTitle}>{l.allDays}</div>
+
         <div style={styles.daysChips}>
           {days.map((day) => {
             const dateKey = new Date(day.date).toISOString().slice(0, 10);
             const active = selectedDate === dateKey;
+
             return (
               <button
                 key={day.id}
-                onClick={() => {
-                  setSelectedDate(dateKey);
-                  setMenuDayId(day.id);
-                  writeCart([]);
-                  setCart([]);
-                }}
+                onClick={() => switchDay(day)}
                 style={{
                   ...styles.dayChip,
                   ...(active ? styles.dayChipActive : {}),
@@ -286,6 +374,8 @@ export default function HomePage() {
       <div style={styles.tabsWrap}>
         {categories.map((category) => {
           const active = activeCategory === category.key;
+          const hasItems = items.some((item) => detectCategory(item) === category.key);
+
           return (
             <button
               key={category.key}
@@ -293,6 +383,7 @@ export default function HomePage() {
               style={{
                 ...styles.tabButton,
                 ...(active ? styles.tabButtonActive : {}),
+                opacity: hasItems ? 1 : 0.45,
               }}
             >
               {category.label}
@@ -315,6 +406,8 @@ export default function HomePage() {
           </Link>
         </div>
 
+        {message ? <div style={styles.messageBox}>{message}</div> : null}
+
         <div style={styles.scrollArea}>
           {loadingDays || loadingItems ? (
             <div style={styles.infoBox}>{l.loading}</div>
@@ -329,6 +422,7 @@ export default function HomePage() {
               {filteredItems.map((item) => {
                 const qty = getQty(item.id);
                 const imageSrc = item.imageUrl?.trim();
+
                 return (
                   <div key={item.id} style={styles.card}>
                     <div style={styles.cardVisualWrap}>
@@ -343,6 +437,9 @@ export default function HomePage() {
 
                     <div style={styles.itemInfo}>
                       <div style={styles.itemName}>{item.name}</div>
+                      {item.description ? (
+                        <div style={styles.itemDescription}>{item.description}</div>
+                      ) : null}
                       <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
                     </div>
 
@@ -371,23 +468,32 @@ export default function HomePage() {
               {cartCount ? `${cartCount} ${l.selected}` : l.emptyOrder}
             </div>
           </div>
+
           <div style={styles.totalBadge}>{formatPrice(totalPrice)}</div>
         </div>
 
         <div style={styles.selectedList}>
-          {currentCart.slice(0, 3).map((item) => (
-            <div key={item.id} style={styles.selectedRow}>
-              <span style={styles.selectedName}>
-                {item.emoji} {item.name}
-              </span>
-              <span style={styles.selectedQty}>x{item.qty}</span>
-            </div>
-          ))}
+          {previewItems.length ? (
+            previewItems.map((item) => (
+              <div key={item.id} style={styles.selectedRow}>
+                <span style={styles.selectedName}>
+                  {item.emoji} {item.name}
+                </span>
+                <span style={styles.selectedQty}>x{item.qty}</span>
+              </div>
+            ))
+          ) : (
+            <div style={styles.emptySelectedRow}>{l.emptyOrder}</div>
+          )}
         </div>
+
+        <Link to="/web/cart" style={styles.openCartBtn}>
+          {l.openCart}
+        </Link>
       </div>
 
       <div style={styles.bottomNav}>
-        <button style={{ ...styles.navItem, ...styles.navActive }}>
+        <button style={{ ...styles.navItem, ...styles.navActive }} type="button">
           <span style={styles.navIcon}>👤</span>
           <span style={styles.navText}>{l.account}</span>
         </button>
@@ -499,6 +605,15 @@ const styles = {
     borderRadius: '14px',
     padding: '10px 12px',
   },
+  messageBox: {
+    background: '#eefbfd',
+    color: '#145962',
+    borderRadius: '16px',
+    padding: '10px 12px',
+    fontWeight: 700,
+    marginBottom: '10px',
+    textAlign: 'center',
+  },
   scrollArea: {
     flex: 1,
     minHeight: 0,
@@ -522,7 +637,7 @@ const styles = {
     background: 'linear-gradient(180deg, #34aaf4 0%, #198ff0 100%)',
     borderRadius: '24px',
     padding: '14px 12px',
-    minHeight: '220px',
+    minHeight: '240px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -562,6 +677,14 @@ const styles = {
     fontSize: '14px',
     lineHeight: 1.2,
     marginBottom: '5px',
+  },
+  itemDescription: {
+    fontSize: '11px',
+    fontWeight: 600,
+    opacity: 0.9,
+    lineHeight: 1.3,
+    minHeight: '28px',
+    marginBottom: '6px',
   },
   itemPrice: {
     fontSize: '12px',
@@ -633,6 +756,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
+    marginBottom: '12px',
   },
   selectedRow: {
     display: 'flex',
@@ -651,6 +775,25 @@ const styles = {
     color: '#1993f1',
     fontWeight: 800,
     fontSize: '13px',
+  },
+  emptySelectedRow: {
+    background: '#f7fbfc',
+    borderRadius: '12px',
+    padding: '12px',
+    color: '#6b8b92',
+    fontWeight: 700,
+    textAlign: 'center',
+    fontSize: '13px',
+  },
+  openCartBtn: {
+    display: 'block',
+    textDecoration: 'none',
+    textAlign: 'center',
+    background: 'linear-gradient(180deg, #32abf4 0%, #1a8ef0 100%)',
+    color: '#ffffff',
+    fontWeight: 800,
+    borderRadius: '18px',
+    padding: '14px 16px',
   },
   bottomNav: {
     background: '#ffffff',

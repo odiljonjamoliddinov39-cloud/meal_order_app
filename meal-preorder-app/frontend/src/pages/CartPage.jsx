@@ -18,6 +18,7 @@ const labels = {
     ordered: 'Order placed successfully',
     failed: 'Failed to place order',
     cartMismatch: 'Cart contains mixed or invalid day data. Re-add items from one day.',
+    submitting: 'Placing...',
   },
   RUS: {
     title: 'Корзина',
@@ -32,6 +33,7 @@ const labels = {
     ordered: 'Заказ успешно создан',
     failed: 'Не удалось создать заказ',
     cartMismatch: 'В корзине смешаны или неверные данные дня. Добавьте заново товары одного дня.',
+    submitting: 'Отправка...',
   },
   UZB: {
     title: 'Savat',
@@ -46,12 +48,24 @@ const labels = {
     ordered: 'Buyurtma muvaffaqiyatli yaratildi',
     failed: 'Buyurtma yaratilmadi',
     cartMismatch: 'Savatchada turli kun yoki noto‘g‘ri ma’lumotlar bor. Bitta kun uchun qayta qo‘shing.',
+    submitting: 'Yuborilmoqda...',
   },
 };
 
+function normalizeCart(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => ({
+      ...item,
+      qty: Math.max(1, Number(item?.qty) || 1),
+      price: Number(item?.price) || 0,
+    }))
+    .filter((item) => item?.menuItemId && item?.menuDayId);
+}
+
 function readCart() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_CART_KEY) || '[]');
+    return normalizeCart(JSON.parse(localStorage.getItem(STORAGE_CART_KEY) || '[]'));
   } catch {
     return [];
   }
@@ -69,7 +83,7 @@ export default function CartPage() {
   const { language } = useOutletContext();
   const l = labels[language] || labels.ENG;
 
-  const [cart, setCart] = useState(readCart());
+  const [cart, setCart] = useState([]);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -79,22 +93,33 @@ export default function CartPage() {
   }, []);
 
   const subtotal = useMemo(
-    () => cart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0),
+    () => cart.reduce((sum, item) => sum + Number(item.price) * Number(item.qty), 0),
     [cart]
   );
 
-  function updateQty(id, diff) {
-    const next = readCart()
-      .map((item) => (item.id === id ? { ...item, qty: Math.max(0, item.qty + diff) } : item))
-      .filter((item) => item.qty > 0);
-
+  function syncCart(next) {
     writeCart(next);
     setCart(next);
   }
 
+  function updateQty(itemKey, diff) {
+    if (submitting) return;
+
+    const next = readCart()
+      .map((item) =>
+        `${item.menuDayId}_${item.menuItemId}` === itemKey
+          ? { ...item, qty: Math.max(0, Number(item.qty) + diff) }
+          : item
+      )
+      .filter((item) => item.qty > 0);
+
+    syncCart(next);
+    setMessage('');
+  }
+
   function clearCart() {
-    writeCart([]);
-    setCart([]);
+    if (submitting) return;
+    syncCart([]);
     setMessage('');
   }
 
@@ -102,7 +127,9 @@ export default function CartPage() {
     if (!cart.length || submitting) return;
 
     const firstDayId = cart[0]?.menuDayId;
-    const sameDay = cart.every((item) => item.menuDayId === firstDayId && item.menuItemId);
+    const sameDay = cart.every(
+      (item) => item.menuDayId === firstDayId && item.menuItemId && item.qty > 0
+    );
 
     if (!sameDay) {
       setMessage(l.cartMismatch);
@@ -117,12 +144,11 @@ export default function CartPage() {
         menuDayId: firstDayId,
         items: cart.map((item) => ({
           menuItemId: item.menuItemId,
-          quantity: item.qty,
+          quantity: item.qty, // change to qty if backend expects qty
         })),
       });
 
-      writeCart([]);
-      setCart([]);
+      syncCart([]);
       navigate('/web/orders', { state: { success: l.ordered } });
     } catch (error) {
       const backendMessage = error?.response?.data?.message;
@@ -139,6 +165,7 @@ export default function CartPage() {
           <div style={styles.heading}>{l.title}</div>
           <div style={styles.subheading}>{l.subtitle}</div>
         </div>
+
         <Link to="/web" style={styles.backLink}>
           ← {l.back}
         </Link>
@@ -148,26 +175,50 @@ export default function CartPage() {
         {cart.length ? (
           <>
             <div style={styles.list}>
-              {cart.map((item) => (
-                <div key={item.id} style={styles.card}>
-                  <div style={styles.left}>
-                    <div style={styles.itemEmoji}>{item.emoji || '🍽️'}</div>
-                    <div>
-                      <div style={styles.itemName}>{item.name}</div>
-                      <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
-                    </div>
-                  </div>
+              {cart.map((item) => {
+                const itemKey = `${item.menuDayId}_${item.menuItemId}`;
+                return (
+                  <div key={itemKey} style={styles.card}>
+                    <div style={styles.left}>
+                      <div style={styles.itemEmoji}>{item.emoji || '🍽️'}</div>
 
-                  <div style={styles.right}>
-                    <div style={styles.counter}>
-                      <button style={styles.counterBtn} onClick={() => updateQty(item.id, -1)}>−</button>
-                      <span style={styles.counterValue}>{item.qty}</span>
-                      <button style={styles.counterBtn} onClick={() => updateQty(item.id, 1)}>+</button>
+                      <div>
+                        <div style={styles.itemName}>{item.name}</div>
+                        {item.description ? (
+                          <div style={styles.itemDescription}>{item.description}</div>
+                        ) : null}
+                        <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
+                      </div>
                     </div>
-                    <div style={styles.lineTotal}>{formatPrice(Number(item.price) * item.qty)}</div>
+
+                    <div style={styles.right}>
+                      <div style={styles.counter}>
+                        <button
+                          style={styles.counterBtn}
+                          onClick={() => updateQty(itemKey, -1)}
+                          disabled={submitting}
+                        >
+                          −
+                        </button>
+
+                        <span style={styles.counterValue}>{item.qty}</span>
+
+                        <button
+                          style={styles.counterBtn}
+                          onClick={() => updateQty(itemKey, 1)}
+                          disabled={submitting}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <div style={styles.lineTotal}>
+                        {formatPrice(Number(item.price) * Number(item.qty))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div style={styles.summary}>
@@ -177,9 +228,10 @@ export default function CartPage() {
               </div>
 
               <button style={styles.primaryBtn} onClick={placeOrder} disabled={submitting}>
-                {submitting ? '...' : l.placeOrder}
+                {submitting ? l.submitting : l.placeOrder}
               </button>
-              <button style={styles.secondaryBtn} onClick={clearCart}>
+
+              <button style={styles.secondaryBtn} onClick={clearCart} disabled={submitting}>
                 {l.clearCart}
               </button>
 
@@ -278,6 +330,11 @@ const styles = {
   itemName: {
     fontWeight: 800,
     color: '#105760',
+    marginBottom: '4px',
+  },
+  itemDescription: {
+    color: '#6a8b92',
+    fontSize: '12px',
     marginBottom: '4px',
   },
   itemPrice: {

@@ -14,6 +14,8 @@ const labels = {
     statusPending: 'Pending',
     statusConfirmed: 'Confirmed',
     statusCancelled: 'Cancelled',
+    loading: 'Loading orders...',
+    failed: 'Failed to load orders',
   },
   RUS: {
     title: 'Мои заказы',
@@ -26,6 +28,8 @@ const labels = {
     statusPending: 'В ожидании',
     statusConfirmed: 'Подтвержден',
     statusCancelled: 'Отменен',
+    loading: 'Загрузка заказов...',
+    failed: 'Не удалось загрузить заказы',
   },
   UZB: {
     title: 'Mening buyurtmalarim',
@@ -38,11 +42,28 @@ const labels = {
     statusPending: 'Kutilmoqda',
     statusConfirmed: 'Tasdiqlangan',
     statusCancelled: 'Bekor qilingan',
+    loading: 'Buyurtmalar yuklanmoqda...',
+    failed: 'Buyurtmalarni yuklab bo‘lmadi',
   },
 };
 
 function formatPrice(value) {
-  return `${Number(value).toLocaleString('ru-RU')} so'm`;
+  return `${Number(value || 0).toLocaleString('ru-RU')} so'm`;
+}
+
+function formatOrderDate(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function mapStatus(status, l) {
@@ -51,32 +72,76 @@ function mapStatus(status, l) {
   return l.statusConfirmed;
 }
 
+function getStatusStyle(status) {
+  if (status === 'PENDING') {
+    return {
+      background: '#fff4e5',
+      color: '#b26a00',
+    };
+  }
+
+  if (status === 'CANCELLED') {
+    return {
+      background: '#fdecea',
+      color: '#b42318',
+    };
+  }
+
+  return {
+    background: '#e9f8ec',
+    color: '#137333',
+  };
+}
+
 export default function OrdersPage() {
   const { language } = useOutletContext();
   const l = labels[language] || labels.ENG;
   const location = useLocation();
 
   const [orders, setOrders] = useState([]);
-  const [successMessage] = useState(location.state?.success || '');
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState(location.state?.success || '');
 
   useEffect(() => {
     let mounted = true;
 
-    api
-      .get('/orders/me')
-      .then((res) => {
+    async function loadOrders() {
+      try {
+        setLoading(true);
+        setErrorMessage('');
+
+        const res = await api.get('/orders/me');
+
         if (!mounted) return;
         setOrders(Array.isArray(res.data) ? res.data : []);
-      })
-      .catch(() => {
+      } catch (error) {
         if (!mounted) return;
         setOrders([]);
-      });
+        setErrorMessage(error?.response?.data?.message || l.failed);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadOrders();
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [l.failed]);
+
+  useEffect(() => {
+    if (!successMessage) return;
+
+    const timeout = setTimeout(() => {
+      setSuccessMessage('');
+    }, 3500);
+
+    return () => clearTimeout(timeout);
+  }, [successMessage]);
 
   return (
     <div style={styles.page}>
@@ -92,20 +157,26 @@ export default function OrdersPage() {
       </div>
 
       {successMessage ? <div style={styles.successBox}>{successMessage}</div> : null}
+      {errorMessage ? <div style={styles.errorBox}>{errorMessage}</div> : null}
 
       <div style={styles.body}>
-        {orders.length ? (
+        {loading ? (
+          <div style={styles.infoBox}>{l.loading}</div>
+        ) : orders.length ? (
           <div style={styles.ordersList}>
             {orders.map((order) => (
               <div key={order.id} style={styles.orderCard}>
                 <div style={styles.orderTop}>
                   <div>
-                    <div style={styles.orderTitle}>Order #{order.id.slice(-6)}</div>
-                    <div style={styles.orderDate}>
-                      {new Date(order.createdAt).toLocaleString()}
+                    <div style={styles.orderTitle}>
+                      Order #{String(order.id || '').slice(-6) || '------'}
                     </div>
+                    <div style={styles.orderDate}>{formatOrderDate(order.createdAt)}</div>
                   </div>
-                  <div style={styles.statusBadge}>{mapStatus(order.status, l)}</div>
+
+                  <div style={{ ...styles.statusBadge, ...getStatusStyle(order.status) }}>
+                    {mapStatus(order.status, l)}
+                  </div>
                 </div>
 
                 <div style={styles.amountRow}>
@@ -116,10 +187,8 @@ export default function OrdersPage() {
                 <div style={styles.itemsWrap}>
                   {(order.items || []).map((item) => (
                     <div key={item.id} style={styles.itemRow}>
-                      <span style={styles.itemName}>
-                        {item.menuItem?.name || 'Item'}
-                      </span>
-                      <span style={styles.itemQty}>x{item.quantity}</span>
+                      <span style={styles.itemName}>{item.menuItem?.name || 'Item'}</span>
+                      <span style={styles.itemQty}>x{item.quantity || 0}</span>
                     </div>
                   ))}
                 </div>
@@ -180,6 +249,21 @@ const styles = {
     borderRadius: '16px',
     padding: '12px 14px',
   },
+  errorBox: {
+    background: '#fdecea',
+    color: '#b42318',
+    fontWeight: 800,
+    borderRadius: '16px',
+    padding: '12px 14px',
+  },
+  infoBox: {
+    background: 'rgba(255,255,255,0.9)',
+    color: '#105760',
+    fontWeight: 700,
+    borderRadius: '18px',
+    padding: '18px',
+    textAlign: 'center',
+  },
   body: {
     flex: 1,
     minHeight: 0,
@@ -215,13 +299,12 @@ const styles = {
     fontWeight: 600,
   },
   statusBadge: {
-    background: '#e9f8ec',
-    color: '#137333',
     fontWeight: 800,
     padding: '8px 12px',
     borderRadius: '999px',
     fontSize: '12px',
     height: 'fit-content',
+    whiteSpace: 'nowrap',
   },
   amountRow: {
     display: 'flex',
