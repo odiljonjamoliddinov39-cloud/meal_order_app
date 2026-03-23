@@ -1,271 +1,529 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-
+import { useNavigate } from 'react-router-dom';
 
 export default function AdminDashboardPage() {
-  const [days, setDays] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [message, setMessage] = useState('');
-  const [currentStep, setCurrentStep] = useState(1); // 1: Overview, 2: Create Day, 3: Create Items, 4: View Orders
-  const [dayForm, setDayForm] = useState({ date: '', orderDeadline: '' });
-  const [itemForm, setItemForm] = useState({ menuDayId: '', name: '', price: 0, plannedQuantity: 1 });
   const navigate = useNavigate();
 
-  const token = localStorage.getItem('admin_token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const [days, setDays] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [dayForm, setDayForm] = useState({
+    date: '',
+  });
+
+  const [itemForm, setItemForm] = useState({
+    dayId: '',
+    name: '',
+    price: '',
+    quantity: '',
+  });
+
+  const token = localStorage.getItem('adminToken');
 
   useEffect(() => {
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
+
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
-  function handleLogout() {
-    localStorage.removeItem('admin_token');
-    navigate('/admin/login');
-  }
+  const headers = useMemo(() => {
+    return {
+      Authorization: `Bearer ${token}`,
+    };
+  }, [token]);
 
-  async function fetchData() {
+  const fetchData = async () => {
     try {
+      setLoading(true);
+      setError('');
+
       const [daysRes, ordersRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_URL}/admin/menu/days`, { headers }),
-        axios.get(`${import.meta.env.VITE_API_URL}/admin/orders`, { headers })
+        axios.get(`${import.meta.env.VITE_API_URL}/admin/orders`, { headers }),
       ]);
-      setDays(daysRes.data);
-      setOrders(ordersRes.data);
-    } catch (err) {
-      console.error(err);
-      setMessage('Could not load admin dashboard data.');
-    }
-  }
 
-  async function createMenuDay(e) {
+      const safeDays = Array.isArray(daysRes.data)
+        ? daysRes.data
+        : Array.isArray(daysRes.data?.days)
+        ? daysRes.data.days
+        : [];
+
+      const safeOrders = Array.isArray(ordersRes.data)
+        ? ordersRes.data
+        : Array.isArray(ordersRes.data?.orders)
+        ? ordersRes.data.orders
+        : [];
+
+      setDays(safeDays);
+      setOrders(safeOrders);
+    } catch (err) {
+      console.error('Dashboard fetch error:', err?.response?.data || err.message);
+      setError(err?.response?.data?.message || 'Failed to load dashboard data');
+      setDays([]);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken');
+    navigate('/admin/login');
+  };
+
+  const handleDayChange = (e) => {
+    const { name, value } = e.target;
+    setDayForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleItemChange = (e) => {
+    const { name, value } = e.target;
+    setItemForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCreateDay = async (e) => {
     e.preventDefault();
-    try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/admin/menu/days`, dayForm, { headers });
-      setMessage('Menu day created successfully!');
-      setDayForm({ date: '', orderDeadline: '' });
-      fetchData();
-      setTimeout(() => setCurrentStep(3), 1500); // Move to create items step
-    } catch (err) {
-      setMessage(err.response?.data?.message || 'Error creating day');
-    }
-  }
 
-  async function createMenuItem(e) {
-    e.preventDefault();
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/admin/menu/items`, itemForm, { headers });
-      setMessage('Menu item created successfully!');
-      setItemForm({ ...itemForm, name: '', price: 0, plannedQuantity: 1 });
-      fetchData();
-    } catch (err) {
-      setMessage(err.response?.data?.message || 'Error creating item');
-    }
-  }
+      setError('');
 
-  const steps = [
-    { id: 1, title: 'Overview', description: 'View dashboard statistics' },
-    { id: 2, title: 'Create Menu Day', description: 'Set up a new day for orders' },
-    { id: 3, title: 'Add Menu Items', description: 'Add meals for the selected day' },
-    { id: 4, title: 'View Orders', description: 'Review customer orders' }
-  ];
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/admin/menu/days`,
+        dayForm,
+        { headers }
+      );
+
+      setDayForm({ date: '' });
+      await fetchData();
+    } catch (err) {
+      console.error('Create day error:', err?.response?.data || err.message);
+      setError(err?.response?.data?.message || 'Failed to create menu day');
+    }
+  };
+
+  const handleCreateItem = async (e) => {
+  e.preventDefault(); // 🔥 THIS IS CRITICAL
+
+  try {
+    const token = localStorage.getItem('adminToken');
+
+    const headers = {
+      Authorization: `Bearer ${token}`,
+    };
+
+    const payload = {
+      dayId: Number(itemForm.dayId),
+      name: itemForm.name,
+      price: Number(itemForm.price),
+      quantity: Number(itemForm.quantity),
+    };
+
+    console.log('CREATE ITEM PAYLOAD:', payload);
+
+    await axios.post(
+      `${import.meta.env.VITE_API_URL}/admin/menu/items`,
+      payload,
+      { headers }
+    );
+
+    // reset form
+    setItemForm({
+      dayId: '',
+      name: '',
+      price: '',
+      quantity: '',
+    });
+
+    // reload data
+    await fetchData();
+  } catch (err) {
+    console.error('CREATE ITEM ERROR:', err?.response?.data || err.message);
+  }
+};
+
+  const totalOrders = Array.isArray(orders) ? orders.length : 0;
+
+  const totalOrderedItems = (Array.isArray(orders) ? orders : []).reduce(
+    (sum, order) => sum + (order?.items?.length || 0),
+    0
+  );
+
+  const totalRevenue = (Array.isArray(orders) ? orders : []).reduce(
+    (sum, order) => sum + Number(order?.totalAmount || order?.total || 0),
+    0
+  );
+
+  if (loading) {
+    return (
+      <div style={{ padding: '24px', color: '#111' }}>
+        <h2>Loading dashboard...</h2>
+      </div>
+    );
+  }
 
   return (
-    <div className="page admin-page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Admin Portal</h1>
-        <button className="btn-secondary" onClick={handleLogout}>Logout</button>
-      </div>
-      <p className="muted">Manage your meal ordering system step by step.</p>
+    <div style={{ padding: '24px', color: '#111' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px',
+          gap: '12px',
+          flexWrap: 'wrap',
+        }}
+      >
+        <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
 
-      {/* Step Navigation */}
-      <div className="step-nav">
-        {steps.map((step) => (
-          <button
-            key={step.id}
-            className={`step-btn ${currentStep === step.id ? 'active' : ''} ${currentStep > step.id ? 'completed' : ''}`}
-            onClick={() => setCurrentStep(step.id)}
-          >
-            <div className="step-number">{step.id}</div>
-            <div className="step-info">
-              <div className="step-title">{step.title}</div>
-              <div className="step-desc">{step.description}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Step Content */}
-      <div className="step-content">
-        {currentStep === 1 && (
-          <div className="panel">
-            <h2>Dashboard Overview</h2>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <strong>{days.length}</strong>
-                <div className="muted">Menu days created</div>
-              </div>
-              <div className="stat-card">
-                <strong>{days.reduce((total, day) => total + day.items.length, 0)}</strong>
-                <div className="muted">Menu items available</div>
-              </div>
-              <div className="stat-card">
-                <strong>{orders.length}</strong>
-                <div className="muted">Total orders</div>
-              </div>
-              <div className="stat-card">
-                <strong>{orders.reduce((total, order) => total + Number(order.totalAmount), 0).toLocaleString()} so'm</strong>
-                <div className="muted">Total revenue</div>
-              </div>
-            </div>
-            <div className="action-buttons">
-              <button className="btn-primary" onClick={() => setCurrentStep(2)}>
-                Create New Menu Day →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {currentStep === 2 && (
-          <div className="panel">
-            <h2>Create Menu Day</h2>
-            <p className="muted">Set up a new day for customers to place orders.</p>
-            <form className="stack" onSubmit={createMenuDay}>
-              <div className="form-group">
-                <label>Select Date</label>
-                <input
-                  type="date"
-                  value={dayForm.date}
-                  onChange={(e) => setDayForm({ ...dayForm, date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Order Deadline</label>
-                <input
-                  type="datetime-local"
-                  value={dayForm.orderDeadline}
-                  onChange={(e) => setDayForm({ ...dayForm, orderDeadline: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="action-buttons">
-                <button type="button" className="btn-secondary" onClick={() => setCurrentStep(1)}>← Back</button>
-                <button type="submit" className="btn-primary">Create Day</button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {currentStep === 3 && (
-          <div className="panel">
-            <h2>Add Menu Items</h2>
-            <p className="muted">Add meals and drinks for customers to order.</p>
-
-            {days.length === 0 ? (
-              <div className="empty-state">
-                <p>No menu days available. Create a menu day first.</p>
-                <button className="btn-primary" onClick={() => setCurrentStep(2)}>Create Menu Day</button>
-              </div>
-            ) : (
-              <form className="stack" onSubmit={createMenuItem}>
-                <div className="form-group">
-                  <label>Select Menu Day</label>
-                  <select
-                    value={itemForm.menuDayId}
-                    onChange={(e) => setItemForm({ ...itemForm, menuDayId: e.target.value })}
-                    required
-                  >
-                    <option value="">Choose day</option>
-                    {days.map((day) => (
-                      <option key={day.id} value={day.id}>
-                        {new Date(day.date).toLocaleDateString()} ({day.items.length} items)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Item Name</label>
-                  <input
-                    placeholder="e.g., Grilled Chicken Salad"
-                    value={itemForm.name}
-                    onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Price (so'm)</label>
-                    <input
-                      type="number"
-                      value={itemForm.price}
-                      min="1"
-                      onChange={(e) => setItemForm({ ...itemForm, price: Number(e.target.value) })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Quantity Available</label>
-                    <input
-                      type="number"
-                      value={itemForm.plannedQuantity}
-                      min="1"
-                      onChange={(e) => setItemForm({ ...itemForm, plannedQuantity: Number(e.target.value) })}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="action-buttons">
-                  <button type="button" className="btn-secondary" onClick={() => setCurrentStep(2)}>← Back</button>
-                  <button type="submit" className="btn-primary">Add Item</button>
-                  <button type="button" className="btn-outline" onClick={() => setCurrentStep(4)}>View Orders →</button>
-                </div>
-              </form>
-            )}
-          </div>
-        )}
-
-        {currentStep === 4 && (
-          <div className="panel">
-            <h2>Recent Orders</h2>
-            <p className="muted">Monitor customer orders and revenue.</p>
-
-            {orders.length === 0 ? (
-              <div className="empty-state">
-                <p>No orders yet. Orders will appear here once customers start placing them.</p>
-              </div>
-            ) : (
-              <div className="orders-list">
-                {orders.map((order) => (
-                  <div key={order.id} className="order-card">
-                    <div className="order-header">
-                      <strong>#{order.id.slice(-6)}</strong>
-                      <span className="order-status">{order.status}</span>
-                    </div>
-                    <div className="order-details">
-                      <div>{order.user?.fullName || 'Unknown customer'}</div>
-                      <div className="muted">{new Date(order.createdAt).toLocaleString()}</div>
-                    </div>
-                    <div className="order-amount">
-                      <strong>{Number(order.totalAmount).toLocaleString()} so'm</strong>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="action-buttons">
-              <button type="button" className="btn-secondary" onClick={() => setCurrentStep(3)}>← Back to Items</button>
-            </div>
-          </div>
-        )}
+        <button
+          onClick={handleLogout}
+          style={{
+            padding: '10px 16px',
+            border: 'none',
+            borderRadius: '10px',
+            cursor: 'pointer',
+          }}
+        >
+          Logout
+        </button>
       </div>
 
-      {message && (
-        <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
-          {message}
+      {error && (
+        <div
+          style={{
+            background: '#ffe5e5',
+            color: '#a30000',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            marginBottom: '20px',
+          }}
+        >
+          {error}
         </div>
       )}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '16px',
+          marginBottom: '28px',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '14px',
+            background: '#f5f5f5',
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Menu Days</h3>
+          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
+            {Array.isArray(days) ? days.length : 0}
+          </p>
+        </div>
+
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '14px',
+            background: '#f5f5f5',
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Orders</h3>
+          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
+            {totalOrders}
+          </p>
+        </div>
+
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '14px',
+            background: '#f5f5f5',
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Ordered Items</h3>
+          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
+            {totalOrderedItems}
+          </p>
+        </div>
+
+        <div
+          style={{
+            padding: '18px',
+            borderRadius: '14px',
+            background: '#f5f5f5',
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Revenue</h3>
+          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
+            {totalRevenue}
+          </p>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '20px',
+          marginBottom: '28px',
+        }}
+      >
+        <div
+          style={{
+            background: '#fafafa',
+            padding: '20px',
+            borderRadius: '14px',
+          }}
+        >
+          <h2>Create Menu Day</h2>
+
+          <form onSubmit={handleCreateDay}>
+            <div style={{ marginBottom: '12px' }}>
+              <label>Date</label>
+              <input
+                type="date"
+                name="date"
+                value={dayForm.date}
+                onChange={handleDayChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginTop: '6px',
+                  borderRadius: '10px',
+                  border: '1px solid #ccc',
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              style={{
+                padding: '10px 16px',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              Create Day
+            </button>
+          </form>
+        </div>
+
+        <div
+          style={{
+            background: '#fafafa',
+            padding: '20px',
+            borderRadius: '14px',
+          }}
+        >
+          <h2>Create Menu Item</h2>
+
+          <form onSubmit={handleCreateItem}>
+            <div style={{ marginBottom: '12px' }}>
+              <label>Day</label>
+              <select
+                name="dayId"
+                value={itemForm.dayId}
+                onChange={handleItemChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginTop: '6px',
+                  borderRadius: '10px',
+                  border: '1px solid #ccc',
+                }}
+              >
+                <option value="">Select day</option>
+                {(Array.isArray(days) ? days : []).map((day) => (
+                  <option key={day.id} value={day.id}>
+                    {day.date}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label>Name</label>
+              <input
+                type="text"
+                name="name"
+                value={itemForm.name}
+                onChange={handleItemChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginTop: '6px',
+                  borderRadius: '10px',
+                  border: '1px solid #ccc',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label>Price</label>
+              <input
+                type="number"
+                name="price"
+                value={itemForm.price}
+                onChange={handleItemChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginTop: '6px',
+                  borderRadius: '10px',
+                  border: '1px solid #ccc',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label>Quantity</label>
+              <input
+                type="number"
+                name="quantity"
+                value={itemForm.quantity}
+                onChange={handleItemChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginTop: '6px',
+                  borderRadius: '10px',
+                  border: '1px solid #ccc',
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              style={{
+                padding: '10px 16px',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              Create Item
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: '#fafafa',
+          padding: '20px',
+          borderRadius: '14px',
+          marginBottom: '24px',
+        }}
+      >
+        <h2>Menu Days</h2>
+
+        {(Array.isArray(days) ? days : []).length === 0 ? (
+          <p>No menu days yet.</p>
+        ) : (
+          (Array.isArray(days) ? days : []).map((day) => (
+            <div
+              key={day.id}
+              style={{
+                padding: '14px',
+                border: '1px solid #e5e5e5',
+                borderRadius: '12px',
+                marginBottom: '12px',
+              }}
+            >
+              <strong>{day.date}</strong>
+
+              <div style={{ marginTop: '8px' }}>
+                {(day.items || []).length === 0 ? (
+                  <p style={{ margin: 0 }}>No items yet.</p>
+                ) : (
+                  <ul style={{ margin: '8px 0 0 18px' }}>
+                    {(day.items || []).map((item) => (
+                      <li key={item.id}>
+                        {item.name} - {item.price}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div
+        style={{
+          background: '#fafafa',
+          padding: '20px',
+          borderRadius: '14px',
+        }}
+      >
+        <h2>Orders</h2>
+
+        {(Array.isArray(orders) ? orders : []).length === 0 ? (
+          <p>No orders yet.</p>
+        ) : (
+          (Array.isArray(orders) ? orders : []).map((order) => (
+            <div
+              key={order.id}
+              style={{
+                padding: '14px',
+                border: '1px solid #e5e5e5',
+                borderRadius: '12px',
+                marginBottom: '12px',
+              }}
+            >
+              <div><strong>Order #{order.id}</strong></div>
+              <div>Status: {order.status || 'UNKNOWN'}</div>
+              <div>Customer: {order.customerName || 'Unknown'}</div>
+              <div>Total: {order.totalAmount || order.total || 0}</div>
+              <div>
+                Created:{' '}
+                {order.createdAt
+                  ? new Date(order.createdAt).toLocaleString()
+                  : '-'}
+              </div>
+
+              <div style={{ marginTop: '8px' }}>
+                <strong>Items:</strong>
+                {(order.items || []).length === 0 ? (
+                  <p style={{ margin: '6px 0 0 0' }}>No items</p>
+                ) : (
+                  <ul style={{ margin: '8px 0 0 18px' }}>
+                    {(order.items || []).map((item) => (
+                      <li key={item.id}>
+                        {item.menuItem?.name || item.name || 'Unnamed item'} x{' '}
+                        {item.quantity || 0}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

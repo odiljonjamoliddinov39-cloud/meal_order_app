@@ -59,8 +59,10 @@ function normalizeCart(raw) {
       ...item,
       qty: Math.max(1, Number(item?.qty) || 1),
       price: Number(item?.price) || 0,
+      menuItemId: Number(item?.menuItemId || item?.id || 0),
+      menuDayId: Number(item?.menuDayId || 0),
     }))
-    .filter((item) => item?.menuItemId && item?.menuDayId);
+    .filter((item) => item.menuItemId && item.menuDayId);
 }
 
 function readCart() {
@@ -76,7 +78,7 @@ function writeCart(cart) {
 }
 
 function formatPrice(value) {
-  return `${Number(value).toLocaleString('ru-RU')} so'm`;
+  return `${Number(value || 0).toLocaleString('ru-RU')} so'm`;
 }
 
 export default function CartPage() {
@@ -93,7 +95,7 @@ export default function CartPage() {
   }, []);
 
   const subtotal = useMemo(
-    () => cart.reduce((sum, item) => sum + Number(item.price) * Number(item.qty), 0),
+    () => cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0),
     [cart]
   );
 
@@ -126,12 +128,15 @@ export default function CartPage() {
   async function placeOrder() {
     if (!cart.length || submitting) return;
 
-    const firstDayId = cart[0]?.menuDayId;
+    const firstDayId = Number(cart[0]?.menuDayId || 0);
     const sameDay = cart.every(
-      (item) => item.menuDayId === firstDayId && item.menuItemId && item.qty > 0
+      (item) =>
+        Number(item.menuDayId || 0) === firstDayId &&
+        Number(item.menuItemId || 0) > 0 &&
+        Number(item.qty || 0) > 0
     );
 
-    if (!sameDay) {
+    if (!sameDay || !firstDayId) {
       setMessage(l.cartMismatch);
       return;
     }
@@ -140,17 +145,23 @@ export default function CartPage() {
       setSubmitting(true);
       setMessage('');
 
-      await api.post('/orders', {
+      const payload = {
         menuDayId: firstDayId,
         items: cart.map((item) => ({
-          menuItemId: item.menuItemId,
-          quantity: item.qty, // change to qty if backend expects qty
+          itemId: Number(item.menuItemId),
+          quantity: Number(item.qty),
         })),
-      });
+      };
+
+      console.log('PLACE ORDER PAYLOAD:', payload);
+
+      const response = await api.post('/orders', payload);
+      console.log('PLACE ORDER RESPONSE:', response?.data);
 
       syncCart([]);
       navigate('/web/orders', { state: { success: l.ordered } });
     } catch (error) {
+      console.error('PLACE ORDER ERROR:', error?.response?.data || error.message);
       const backendMessage = error?.response?.data?.message;
       setMessage(backendMessage || l.failed);
     } finally {
@@ -194,6 +205,7 @@ export default function CartPage() {
                     <div style={styles.right}>
                       <div style={styles.counter}>
                         <button
+                          type="button"
                           style={styles.counterBtn}
                           onClick={() => updateQty(itemKey, -1)}
                           disabled={submitting}
@@ -204,6 +216,7 @@ export default function CartPage() {
                         <span style={styles.counterValue}>{item.qty}</span>
 
                         <button
+                          type="button"
                           style={styles.counterBtn}
                           onClick={() => updateQty(itemKey, 1)}
                           disabled={submitting}
@@ -227,11 +240,21 @@ export default function CartPage() {
                 <strong>{formatPrice(subtotal)}</strong>
               </div>
 
-              <button style={styles.primaryBtn} onClick={placeOrder} disabled={submitting}>
+              <button
+                type="button"
+                style={styles.primaryBtn}
+                onClick={placeOrder}
+                disabled={submitting}
+              >
                 {submitting ? l.submitting : l.placeOrder}
               </button>
 
-              <button style={styles.secondaryBtn} onClick={clearCart} disabled={submitting}>
+              <button
+                type="button"
+                style={styles.secondaryBtn}
+                onClick={clearCart}
+                disabled={submitting}
+              >
                 {l.clearCart}
               </button>
 

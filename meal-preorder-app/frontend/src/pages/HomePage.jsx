@@ -161,6 +161,39 @@ function formatDate(dateString) {
   return d.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' });
 }
 
+function normalizeDay(day) {
+  if (!day) return null;
+
+  const dateValue = day.date ? new Date(day.date).toISOString().slice(0, 10) : '';
+
+  return {
+    id: day.id,
+    date: dateValue,
+    isOpen: day.isOpen ?? true,
+    items: Array.isArray(day.items) ? day.items : [],
+    label: day.label || dateValue,
+  };
+}
+
+function normalizeItem(item, selectedDate, menuDayId) {
+  if (!item) return null;
+
+  return {
+    id: item.id,
+    menuItemId: item.menuItemId || item.id,
+    menuDayId: item.menuDayId || menuDayId,
+    name: item.name || 'Unnamed item',
+    description: item.description || '',
+    price: Number(item.price || 0),
+    qty: Math.max(1, Number(item.qty) || 1),
+    imageUrl: item.imageUrl || '',
+    emoji: item.emoji || getEmoji(item),
+    isActive: item.isActive ?? true,
+    availableQuantity: Number(item.availableQuantity ?? item.quantity ?? 0),
+    date: item.date || selectedDate,
+  };
+}
+
 export default function HomePage() {
   const { language } = useOutletContext();
   const l = labels[language] || labels.ENG;
@@ -198,12 +231,16 @@ export default function HomePage() {
         const res = await api.get('/menu/days');
         if (!mounted) return;
 
-        const safeDays = Array.isArray(res.data) ? res.data.filter((d) => d.isOpen) : [];
+        const rawDays = Array.isArray(res.data) ? res.data : [];
+        const safeDays = rawDays
+          .map(normalizeDay)
+          .filter(Boolean)
+          .filter((d) => d.isOpen);
+
         setDays(safeDays);
 
         if (safeDays.length) {
-          const firstDate = new Date(safeDays[0].date).toISOString().slice(0, 10);
-          setSelectedDate(firstDate);
+          setSelectedDate(safeDays[0].date);
           setMenuDayId(safeDays[0].id);
         } else {
           setSelectedDate('');
@@ -212,6 +249,7 @@ export default function HomePage() {
         }
       } catch (err) {
         if (!mounted) return;
+        console.error('LOAD DAYS ERROR:', err?.response?.data || err.message);
         setError(l.failed);
       } finally {
         if (mounted) setLoadingDays(false);
@@ -238,11 +276,28 @@ export default function HomePage() {
         const res = await api.get(`/menu/items?date=${selectedDate}`);
         if (!mounted) return;
 
-        const dayData = res.data || {};
-        setMenuDayId(dayData.id || '');
-        const activeItems = Array.isArray(dayData.items)
-          ? dayData.items.filter((item) => item.isActive)
-          : [];
+        const raw = res.data;
+
+        let resolvedMenuDayId = menuDayId;
+        let rawItems = [];
+
+        if (Array.isArray(raw)) {
+          rawItems = raw;
+          if (!resolvedMenuDayId) {
+            const matchedDay = days.find((day) => day.date === selectedDate);
+            resolvedMenuDayId = matchedDay?.id || '';
+          }
+        } else {
+          resolvedMenuDayId = raw?.id || '';
+          rawItems = Array.isArray(raw?.items) ? raw.items : [];
+        }
+
+        setMenuDayId(resolvedMenuDayId);
+
+        const activeItems = rawItems
+          .map((item) => normalizeItem(item, selectedDate, resolvedMenuDayId))
+          .filter(Boolean)
+          .filter((item) => item.isActive);
 
         setItems(activeItems);
 
@@ -250,12 +305,17 @@ export default function HomePage() {
         const hasCurrent = activeItems.some((item) => detectCategory(item) === activeCategory);
 
         if (!hasCurrent) {
-          setActiveCategory(hasMeal ? 'meal' : categories.find((cat) =>
-            activeItems.some((item) => detectCategory(item) === cat.key)
-          )?.key || 'meal');
+          setActiveCategory(
+            hasMeal
+              ? 'meal'
+              : categories.find((cat) =>
+                  activeItems.some((item) => detectCategory(item) === cat.key)
+                )?.key || 'meal'
+          );
         }
       } catch (err) {
         if (!mounted) return;
+        console.error('LOAD ITEMS ERROR:', err?.response?.data || err.message);
         setError(l.failed);
         setItems([]);
       } finally {
@@ -268,14 +328,14 @@ export default function HomePage() {
     return () => {
       mounted = false;
     };
-  }, [selectedDate, l.failed, activeCategory, categories]);
+  }, [selectedDate, l.failed, activeCategory, categories, days, menuDayId]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => detectCategory(item) === activeCategory);
   }, [items, activeCategory]);
 
   const currentCart = useMemo(() => {
-    return cart.filter((item) => item.menuDayId === menuDayId);
+    return cart.filter((item) => String(item.menuDayId) === String(menuDayId));
   }, [cart, menuDayId]);
 
   const cartCount = currentCart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
@@ -290,19 +350,23 @@ export default function HomePage() {
   }
 
   function getQty(id) {
-    return currentCart.find((item) => item.id === id)?.qty || 0;
+    return currentCart.find((item) => Number(item.id) === Number(id))?.qty || 0;
   }
 
   function changeQty(item, diff) {
     if (!menuDayId) return;
 
-    const raw = readCart().filter((x) => x.menuDayId === menuDayId);
-    const existing = raw.find((x) => x.id === item.id);
+    const raw = readCart().filter((x) => String(x.menuDayId) === String(menuDayId));
+    const existing = raw.find((x) => Number(x.id) === Number(item.id));
     let next = raw;
 
     if (existing) {
       next = raw
-        .map((x) => (x.id === item.id ? { ...x, qty: Math.max(0, Number(x.qty) + diff) } : x))
+        .map((x) =>
+          Number(x.id) === Number(item.id)
+            ? { ...x, qty: Math.max(0, Number(x.qty) + diff) }
+            : x
+        )
         .filter((x) => x.qty > 0);
     } else if (diff > 0) {
       next = [
@@ -327,9 +391,11 @@ export default function HomePage() {
   }
 
   function switchDay(day) {
-    const dateKey = new Date(day.date).toISOString().slice(0, 10);
+    const dateKey = day.date;
     const currentStored = readCart();
-    const hasOtherDayItems = currentStored.some((item) => item.menuDayId !== day.id);
+    const hasOtherDayItems = currentStored.some(
+      (item) => String(item.menuDayId) !== String(day.id)
+    );
 
     setSelectedDate(dateKey);
     setMenuDayId(day.id);
@@ -352,8 +418,7 @@ export default function HomePage() {
 
         <div style={styles.daysChips}>
           {days.map((day) => {
-            const dateKey = new Date(day.date).toISOString().slice(0, 10);
-            const active = selectedDate === dateKey;
+            const active = selectedDate === day.date;
 
             return (
               <button
@@ -441,6 +506,9 @@ export default function HomePage() {
                         <div style={styles.itemDescription}>{item.description}</div>
                       ) : null}
                       <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
+                      <div style={styles.itemPrice}>
+                        Available: {item.availableQuantity}
+                      </div>
                     </div>
 
                     <div style={styles.counterWrap}>
@@ -448,7 +516,11 @@ export default function HomePage() {
                         −
                       </button>
                       <span style={styles.counterValue}>{qty}</span>
-                      <button style={styles.counterBtn} onClick={() => changeQty(item, 1)}>
+                      <button
+                        style={styles.counterBtn}
+                        onClick={() => changeQty(item, 1)}
+                        disabled={qty >= item.availableQuantity}
+                      >
                         +
                       </button>
                     </div>
