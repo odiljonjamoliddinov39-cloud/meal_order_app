@@ -20,8 +20,8 @@ export default function App() {
         <Route path="dashboard" element={<AdminDashboardPage />} />
       </Route>
 
-      <Route path="/" element={<Navigate to="/web" />} />
-      <Route path="*" element={<div className="page"><h2>Page not found</h2></div>} />
+      <Route path="/" element={<Navigate to="/web" replace />} />
+      <Route path="*" element={<div><h2>Page not found</h2></div>} />
     </Routes>
   );
 }
