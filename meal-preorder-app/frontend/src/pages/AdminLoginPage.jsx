@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import api from '../api/client.js';
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -9,13 +9,11 @@ export default function AdminLoginPage() {
     email: 'admin@example.com',
     password: '',
   });
-
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setForm((prev) => ({
       ...prev,
       [name]: value,
@@ -33,13 +31,7 @@ export default function AdminLoginPage() {
         password: form.password,
       };
 
-      console.log('LOGIN PAYLOAD:', payload);
-
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/admin/login`,
-        payload
-      );
-
+      const response = await api.post('/admin/login', payload);
       const token = response?.data?.token;
 
       if (!token) {

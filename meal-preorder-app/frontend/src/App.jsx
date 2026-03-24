@@ -4,10 +4,7 @@ import AdminLayout from './layouts/AdminLayout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
-
-import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
-import AdminProtectedRoute from './components/AdminProtectedRoute.jsx';
 
 export default function App() {
   return (
@@ -18,17 +15,9 @@ export default function App() {
         <Route path="orders" element={<OrdersPage />} />
       </Route>
 
-
       <Route path="/admin" element={<AdminLayout />}>
-        <Route path="login" element={<AdminLoginPage />} />
-        <Route
-          path="dashboard"
-          element={
-            <AdminProtectedRoute>
-              <AdminDashboardPage />
-            </AdminProtectedRoute>
-          }
-        />
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/web" />} />
@@ -36,4 +25,3 @@ export default function App() {
     </Routes>
   );
 }
-
