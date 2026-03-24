@@ -1,0 +1,21 @@
+[33mcommit 904a5f0f3a89ca58a3c523c6b266bbb16f83d2e8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: odiljonjamoliddinov39-cloud <odiljonjamoliddinov39@gmail.com>
+Date:   Mon Mar 23 21:23:57 2026 +0000
+
+    Fix admin auth, shared menu flow, and customer ordering
+
+ meal-preorder-app/backend/package-lock.json                     |   2 [32m+[m[31m-[m
+ meal-preorder-app/backend/package.json                          |   2 [32m+[m[31m-[m
+ meal-preorder-app/backend/src/controllers/adminController.js    |  44 [32m++++[m
+ meal-preorder-app/backend/src/controllers/customerController.js | 144 [32m+++++++++++[m
+ meal-preorder-app/backend/src/index.js                          |   8 [32m+[m[31m-[m
+ meal-preorder-app/backend/src/lib/prisma.js                     |  11 [32m+[m
+ meal-preorder-app/backend/src/lib/store.js                      |  52 [32m++++[m
+ meal-preorder-app/backend/src/middleware/requireTelegramAuth.js | 157 [32m++[m[31m----------[m
+ meal-preorder-app/backend/src/routes/AdminRoutes.js             | 118 [32m+++++++++[m
+ meal-preorder-app/frontend/src/pages/AdminDashboardPage.jsx     | 708 [32m+++++++++++++++++++++++++++++++++++[m[31m----------------[m
+ meal-preorder-app/frontend/src/pages/AdminLoginPage.jsx         | 171 [32m+++++++++++[m[31m--[m
+ meal-preorder-app/frontend/src/pages/CartPage.jsx               |  47 [32m+++[m[31m-[m
+ meal-preorder-app/frontend/src/pages/HomePage.jsx               | 116 [32m+++++++[m[31m--[m
+ meal-preorder-app/frontend/vite.config.js                       |  12 [32m+[m[31m-[m
+ 14 files changed, 1176 insertions(+), 416 deletions(-)
