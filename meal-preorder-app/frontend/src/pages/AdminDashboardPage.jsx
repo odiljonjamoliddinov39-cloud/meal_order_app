@@ -25,8 +25,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!token) {
-      navigate('/admin/login');
-      return;
+      console.warn('No admin token, but auth is disabled for now.');
     }
 
     fetchData();
@@ -75,7 +74,7 @@ export default function AdminDashboardPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
-    navigate('/admin/login');
+    navigate('/admin');
   };
 
   const handleDayChange = (e) => {
