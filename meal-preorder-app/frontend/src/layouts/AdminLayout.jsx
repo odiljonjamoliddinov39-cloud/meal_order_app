@@ -6,6 +6,7 @@ export default function AdminLayout() {
       <div style={{ marginBottom: '16px' }}>
         <Link to="/web">Go to app</Link>
       </div>
+
       <Outlet />
     </div>
   );

@@ -19,7 +19,7 @@ export default function App() {
         <Route index element={<AdminDashboardPage />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
       </Route>
-
+      
       <Route path="/" element={<Navigate to="/web" replace />} />
       <Route path="*" element={<div><h2>Page not found</h2></div>} />
     </Routes>
