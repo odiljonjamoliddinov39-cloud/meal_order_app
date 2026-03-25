@@ -14,8 +14,7 @@ api.interceptors.request.use((config) => {
     if (tgUser) {
       telegramUserId = tgUser.id;
       telegramUserName =
-        tgUser.first_name +
-        (tgUser.last_name ? ' ' + tgUser.last_name : '');
+        tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
     }
   }
 
