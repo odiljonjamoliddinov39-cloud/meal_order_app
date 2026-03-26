@@ -106,6 +106,7 @@ function detectCategory(item) {
 
 
 
+
 function getEmoji(item) {
   const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
 
@@ -169,6 +170,7 @@ function normalizeItem(item, selectedDate, menuDayId) {
     type: item.type || 'meal',
   };
 }
+
 
 
 export default function HomePage() {
