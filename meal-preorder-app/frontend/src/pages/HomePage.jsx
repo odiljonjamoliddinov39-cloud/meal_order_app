@@ -95,41 +95,16 @@ function formatPrice(value) {
 }
 
 function detectCategory(item) {
-  const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
+  const type = String(item?.type || '').toLowerCase();
 
-  if (
-    text.includes('coffee') ||
-    text.includes('latte') ||
-    text.includes('espresso') ||
-    text.includes('капуч') ||
-    text.includes('коф')
-  ) {
-    return 'coffee';
-  }
-
-  if (
-    text.includes('cake') ||
-    text.includes('ice cream') ||
-    text.includes('dessert') ||
-    text.includes('торт') ||
-    text.includes('морож')
-  ) {
-    return 'dessert';
-  }
-
-  if (
-    text.includes('juice') ||
-    text.includes('cola') ||
-    text.includes('drink') ||
-    text.includes('water') ||
-    text.includes('чай') ||
-    text.includes('напит')
-  ) {
-    return 'drinks';
-  }
+  if (type === 'coffee') return 'coffee';
+  if (type === 'dessert') return 'dessert';
+  if (type === 'drink' || type === 'drinks') return 'drinks';
 
   return 'meal';
 }
+
+
 
 function getEmoji(item) {
   const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
@@ -191,8 +166,10 @@ function normalizeItem(item, selectedDate, menuDayId) {
     isActive: item.isActive ?? true,
     availableQuantity: Number(item.availableQuantity ?? item.quantity ?? 0),
     date: item.date || selectedDate,
+    type: item.type || 'meal',
   };
 }
+
 
 export default function HomePage() {
   const { language } = useOutletContext();

@@ -22,13 +22,13 @@ export default function AdminDashboardPage() {
     try {
       setLoading(true);
 
-      const [d, o] = await Promise.all([
+      const [daysRes, ordersRes] = await Promise.all([
         axios.get(`${API}/admin/menu/days`),
         axios.get(`${API}/admin/orders`),
       ]);
 
-      setDays(Array.isArray(d.data) ? d.data : []);
-      setOrders(Array.isArray(o.data) ? o.data : []);
+      setDays(Array.isArray(daysRes.data) ? daysRes.data : []);
+      setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
     } catch (error) {
       console.error('ADMIN FETCH ERROR:', error?.response?.data || error.message);
     } finally {
@@ -42,10 +42,11 @@ export default function AdminDashboardPage() {
 
   const createDay = async (e) => {
     e.preventDefault();
+
     try {
       await axios.post(`${API}/admin/menu/days`, dayForm);
       setDayForm({ date: '' });
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error('CREATE DAY ERROR:', error?.response?.data || error.message);
     }
@@ -57,9 +58,9 @@ export default function AdminDashboardPage() {
     try {
       await axios.post(`${API}/admin/menu/items`, {
         ...itemForm,
+        dayId: Number(itemForm.dayId),
         price: Number(itemForm.price),
         quantity: Number(itemForm.quantity),
-        dayId: Number(itemForm.dayId),
       });
 
       setItemForm({
@@ -70,25 +71,34 @@ export default function AdminDashboardPage() {
         type: 'meal',
       });
 
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error('CREATE ITEM ERROR:', error?.response?.data || error.message);
     }
   };
 
-  const deleteDay = async (id) => {
+  const deleteDay = async (dayId) => {
     try {
-      await axios.delete(`${API}/admin/menu/days/${id}`);
-      fetchData();
+      await axios.delete(`${API}/admin/menu/days/${dayId}`);
+      await fetchData();
     } catch (error) {
       console.error('DELETE DAY ERROR:', error?.response?.data || error.message);
     }
   };
 
-  const deleteOrder = async (id) => {
+  const deleteItem = async (dayId, itemId) => {
     try {
-      await axios.delete(`${API}/admin/orders/${id}`);
-      fetchData();
+      await axios.delete(`${API}/admin/menu/items/${dayId}/${itemId}`);
+      await fetchData();
+    } catch (error) {
+      console.error('DELETE ITEM ERROR:', error?.response?.data || error.message);
+    }
+  };
+
+  const deleteOrder = async (orderId) => {
+    try {
+      await axios.delete(`${API}/admin/orders/${orderId}`);
+      await fetchData();
     } catch (error) {
       console.error('DELETE ORDER ERROR:', error?.response?.data || error.message);
     }
@@ -96,11 +106,11 @@ export default function AdminDashboardPage() {
 
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce(
-    (sum, o) => sum + Number(o.totalAmount || 0),
+    (sum, order) => sum + Number(order.totalAmount || 0),
     0
   );
   const totalItems = orders.reduce(
-    (sum, o) => sum + (Array.isArray(o.items) ? o.items.length : 0),
+    (sum, order) => sum + (Array.isArray(order.items) ? order.items.length : 0),
     0
   );
 
@@ -109,7 +119,7 @@ export default function AdminDashboardPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Admin Dashboard</h1>
-          <p style={styles.subtitle}>Manage menu days, items, and orders</p>
+          <p style={styles.subtitle}>Manage menu and orders</p>
         </div>
 
         <button onClick={fetchData} style={styles.primaryButton}>
@@ -129,7 +139,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div style={styles.statCard}>
-          <div style={styles.statLabel}>Items Ordered</div>
+          <div style={styles.statLabel}>Ordered Items</div>
           <div style={styles.statValue}>{totalItems}</div>
         </div>
 
@@ -165,46 +175,47 @@ export default function AdminDashboardPage() {
             <select
               value={itemForm.dayId}
               onChange={(e) =>
-                setItemForm({ ...itemForm, dayId: e.target.value })
+                setItemForm((prev) => ({ ...prev, dayId: e.target.value }))
               }
               style={styles.input}
               required
             >
               <option value="">Select day</option>
-              {days.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.date}
+              {days.map((day) => (
+                <option key={day.id} value={day.id}>
+                  {day.date}
                 </option>
               ))}
             </select>
 
             <input
-              placeholder="Item name"
+              type="text"
+              placeholder="Name"
               value={itemForm.name}
               onChange={(e) =>
-                setItemForm({ ...itemForm, name: e.target.value })
+                setItemForm((prev) => ({ ...prev, name: e.target.value }))
               }
               style={styles.input}
               required
             />
 
             <input
-              placeholder="Price"
               type="number"
+              placeholder="Price"
               value={itemForm.price}
               onChange={(e) =>
-                setItemForm({ ...itemForm, price: e.target.value })
+                setItemForm((prev) => ({ ...prev, price: e.target.value }))
               }
               style={styles.input}
               required
             />
 
             <input
-              placeholder="Quantity"
               type="number"
+              placeholder="Quantity"
               value={itemForm.quantity}
               onChange={(e) =>
-                setItemForm({ ...itemForm, quantity: e.target.value })
+                setItemForm((prev) => ({ ...prev, quantity: e.target.value }))
               }
               style={styles.input}
               required
@@ -213,7 +224,7 @@ export default function AdminDashboardPage() {
             <select
               value={itemForm.type}
               onChange={(e) =>
-                setItemForm({ ...itemForm, type: e.target.value })
+                setItemForm((prev) => ({ ...prev, type: e.target.value }))
               }
               style={styles.input}
             >
@@ -245,7 +256,7 @@ export default function AdminDashboardPage() {
                     onClick={() => deleteDay(day.id)}
                     style={styles.dangerButton}
                   >
-                    Delete
+                    Delete Day
                   </button>
                 </div>
 
@@ -255,10 +266,20 @@ export default function AdminDashboardPage() {
                   ) : (
                     (day.items || []).map((item) => (
                       <div key={item.id} style={styles.itemRow}>
-                        <span>
-                          {item.name} <span style={styles.typeBadge}>({item.type})</span>
-                        </span>
-                        <span>{item.price}</span>
+                        <div>
+                          {item.name}{' '}
+                          <span style={styles.typeBadge}>({item.type || 'meal'})</span>
+                        </div>
+
+                        <div style={styles.itemActions}>
+                          <span>{item.price}</span>
+                          <button
+                            onClick={() => deleteItem(day.id, item.id)}
+                            style={styles.smallDangerButton}
+                          >
+                            Delete Item
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -278,12 +299,13 @@ export default function AdminDashboardPage() {
           <div style={styles.emptyCard}>No orders yet.</div>
         ) : (
           <div style={styles.orderList}>
-            {orders.map((o) => (
-              <div key={o.id} style={styles.orderCard}>
+            {orders.map((order) => (
+              <div key={order.id} style={styles.orderCard}>
                 <div style={styles.cardTop}>
-                  <strong style={styles.cardTitle}>Order #{o.id}</strong>
+                  <strong style={styles.cardTitle}>Order #{order.id}</strong>
+
                   <button
-                    onClick={() => deleteOrder(o.id)}
+                    onClick={() => deleteOrder(order.id)}
                     style={styles.dangerButton}
                   >
                     Delete
@@ -291,19 +313,21 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div style={styles.orderItems}>
-                  {(o.items || []).map((i) => (
-                    <div key={i.id} style={styles.orderItemRow}>
-                      <span>{i.name}</span>
-                      <span>x{i.quantity}</span>
+                  {(order.items || []).map((item) => (
+                    <div key={item.id} style={styles.orderItemRow}>
+                      <span>{item.name}</span>
+                      <span>x{item.quantity}</span>
                     </div>
                   ))}
                 </div>
 
                 <div style={styles.orderMetaRow}>
-                  <span style={styles.metaPill}>{o.customerName || '-'}</span>
-                  <span style={styles.metaPill}>{o.totalAmount || 0} so'm</span>
+                  <span style={styles.metaPill}>{order.customerName || '-'}</span>
+                  <span style={styles.metaPill}>{order.totalAmount || 0} so'm</span>
                   <span style={styles.metaPill}>
-                    {o.createdAt ? new Date(o.createdAt).toLocaleString() : '-'}
+                    {order.createdAt
+                      ? new Date(order.createdAt).toLocaleString()
+                      : '-'}
                   </span>
                 </div>
               </div>
@@ -409,6 +433,16 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 700,
   },
+  smallDangerButton: {
+    border: 'none',
+    background: '#ff7b81',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: '12px',
+  },
   section: {
     marginBottom: '24px',
   },
@@ -418,7 +452,7 @@ const styles = {
   },
   cardsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
     gap: '16px',
   },
   dayCard: {
@@ -453,10 +487,18 @@ const styles = {
   itemRow: {
     display: 'flex',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: '12px',
     background: '#f7fbff',
     padding: '10px 12px',
     borderRadius: '12px',
+    flexWrap: 'wrap',
+  },
+  itemActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
   },
   typeBadge: {
     color: '#5b708a',
