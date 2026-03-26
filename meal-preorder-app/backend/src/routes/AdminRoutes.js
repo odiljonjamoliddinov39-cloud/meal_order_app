@@ -12,6 +12,8 @@ const router = Router();
 
 router.post('/admin/login', loginAdmin);
 
+// ===== MENU DAYS =====
+
 router.get('/admin/menu/days', (req, res) => {
   res.json(menuDays);
 });
@@ -24,9 +26,9 @@ router.post('/admin/menu/days', (req, res) => {
       return res.status(400).json({ message: 'Date is required' });
     }
 
-    const existingDay = menuDays.find((day) => day.date === date);
-    if (existingDay) {
-      return res.status(400).json({ message: 'This menu day already exists' });
+    const exists = menuDays.find((d) => d.date === date);
+    if (exists) {
+      return res.status(400).json({ message: 'Already exists' });
     }
 
     const newDay = {
@@ -37,153 +39,106 @@ router.post('/admin/menu/days', (req, res) => {
 
     menuDays.push(newDay);
 
-    return res.status(201).json(newDay);
-  } catch (error) {
-    console.error('Create day error:', error);
-    return res.status(500).json({ message: 'Failed to create menu day' });
+    res.status(201).json(newDay);
+  } catch {
+    res.status(500).json({ message: 'Failed to create day' });
   }
 });
 
 router.delete('/admin/menu/days/:id', (req, res) => {
-  try {
-    const id = Number(req.params.id);
+  const id = Number(req.params.id);
 
-    const index = menuDays.findIndex((day) => Number(day.id) === id);
+  const index = menuDays.findIndex((d) => d.id === id);
+  if (index === -1) return res.status(404).json({ message: 'Not found' });
 
-    if (index === -1) {
-      return res.status(404).json({ message: 'Menu day not found' });
-    }
+  menuDays.splice(index, 1);
 
-    menuDays.splice(index, 1);
-
-    return res.json({ message: 'Menu day deleted successfully' });
-  } catch (error) {
-    console.error('Delete day error:', error);
-    return res.status(500).json({ message: 'Failed to delete menu day' });
-  }
+  res.json({ message: 'Deleted' });
 });
+
+// ===== MENU ITEMS =====
 
 router.post('/admin/menu/items', (req, res) => {
   try {
-    const { dayId, name, price, quantity } = req.body || {};
+    const { dayId, name, price, quantity, type } = req.body || {};
 
-    if (!dayId || !name || price === undefined || quantity === undefined) {
-      return res.status(400).json({
-        message: 'dayId, name, price and quantity are required',
-      });
+    if (!dayId || !name) {
+      return res.status(400).json({ message: 'Missing fields' });
     }
 
-    const targetDay = menuDays.find((day) => Number(day.id) === Number(dayId));
+    const day = menuDays.find((d) => Number(d.id) === Number(dayId));
+    if (!day) return res.status(404).json({ message: 'Day not found' });
 
-    if (!targetDay) {
-      return res.status(404).json({ message: 'Menu day not found' });
-    }
-
-    const newItem = {
+    const item = {
       id: getNextItemId(),
       name,
       price: Number(price),
       quantity: Number(quantity),
+      type: type || 'meal',
     };
 
-    targetDay.items.push(newItem);
+    day.items.push(item);
 
-    return res.status(201).json({
-      message: 'Menu item created successfully',
-      item: newItem,
-      day: targetDay,
-    });
-  } catch (error) {
-    console.error('Create item error:', error);
-    return res.status(500).json({ message: 'Failed to create menu item' });
+    res.status(201).json(item);
+  } catch {
+    res.status(500).json({ message: 'Failed to create item' });
   }
 });
 
+// ===== ORDERS =====
+
 router.get('/admin/orders', (req, res) => {
-  try {
-    const { date, customer } = req.query;
+  const { date, customer } = req.query;
 
-    let filteredOrders = [...orders];
+  let result = [...orders];
 
-    if (date) {
-      filteredOrders = filteredOrders.filter((order) => {
-        if (!order.createdAt) return false;
-        const orderDate = new Date(order.createdAt).toISOString().slice(0, 10);
-        return orderDate === date;
-      });
-    }
-
-    if (customer) {
-      const query = String(customer).toLowerCase();
-      filteredOrders = filteredOrders.filter((order) => {
-        const name = String(order.customerName || '').toLowerCase();
-        const username = String(order.telegramUsername || '').toLowerCase();
-        const telegramId = String(order.telegramId || '').toLowerCase();
-
-        return (
-          name.includes(query) ||
-          username.includes(query) ||
-          telegramId.includes(query)
-        );
-      });
-    }
-
-    return res.json(filteredOrders);
-  } catch (error) {
-    console.error('Get orders error:', error);
-    return res.status(500).json({ message: 'Failed to fetch orders' });
+  if (date) {
+    result = result.filter((o) => o.createdAt?.startsWith(date));
   }
+
+  if (customer) {
+    const q = customer.toLowerCase();
+    result = result.filter(
+      (o) =>
+        (o.customerName || '').toLowerCase().includes(q) ||
+        (o.telegramId || '').toLowerCase().includes(q)
+    );
+  }
+
+  res.json(result);
 });
 
 router.post('/admin/orders', (req, res) => {
-  try {
-    const { customerName, telegramId, telegramUsername, items } = req.body || {};
+  const { customerName, telegramId, items } = req.body || {};
 
-    const safeItems = Array.isArray(items) ? items : [];
+  const total = (items || []).reduce(
+    (sum, i) => sum + (i.price || 0) * (i.quantity || 0),
+    0
+  );
 
-    const totalAmount = safeItems.reduce((sum, item) => {
-      const price = Number(item?.menuItem?.price || item?.price || 0);
-      const qty = Number(item?.quantity || 0);
-      return sum + price * qty;
-    }, 0);
+  const order = {
+    id: getNextOrderId(),
+    createdAt: new Date().toISOString(),
+    customerName: customerName || '',
+    telegramId: telegramId || '',
+    items: items || [],
+    totalAmount: total,
+  };
 
-    const newOrder = {
-      id: getNextOrderId(),
-      status: 'PENDING',
-      totalAmount,
-      createdAt: new Date().toISOString(),
-      customerName: customerName || 'Demo Customer',
-      telegramUsername: telegramUsername || '',
-      telegramId: telegramId || '123456789',
-      items: safeItems,
-    };
+  orders.unshift(order);
 
-    orders.unshift(newOrder);
-
-    return res.status(201).json(newOrder);
-  } catch (error) {
-    console.error('Create order error:', error);
-    return res.status(500).json({ message: 'Failed to create order' });
-  }
+  res.status(201).json(order);
 });
 
 router.delete('/admin/orders/:id', (req, res) => {
-  try {
-    const id = Number(req.params.id);
+  const id = Number(req.params.id);
 
-    const index = orders.findIndex((order) => Number(order.id) === id);
+  const index = orders.findIndex((o) => o.id === id);
+  if (index === -1) return res.status(404).json({ message: 'Not found' });
 
-    if (index === -1) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
+  orders.splice(index, 1);
 
-    orders.splice(index, 1);
-
-    return res.json({ message: 'Order deleted successfully' });
-  } catch (error) {
-    console.error('Delete order error:', error);
-    return res.status(500).json({ message: 'Failed to delete order' });
-  }
+  res.json({ message: 'Deleted' });
 });
 
 export default router;
