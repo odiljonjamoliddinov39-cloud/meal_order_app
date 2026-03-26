@@ -44,6 +44,25 @@ router.post('/admin/menu/days', (req, res) => {
   }
 });
 
+router.delete('/admin/menu/days/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const index = menuDays.findIndex((day) => Number(day.id) === id);
+
+    if (index === -1) {
+      return res.status(404).json({ message: 'Menu day not found' });
+    }
+
+    menuDays.splice(index, 1);
+
+    return res.json({ message: 'Menu day deleted successfully' });
+  } catch (error) {
+    console.error('Delete day error:', error);
+    return res.status(500).json({ message: 'Failed to delete menu day' });
+  }
+});
+
 router.post('/admin/menu/items', (req, res) => {
   try {
     const { dayId, name, price, quantity } = req.body || {};
@@ -81,12 +100,44 @@ router.post('/admin/menu/items', (req, res) => {
 });
 
 router.get('/admin/orders', (req, res) => {
-  res.json(orders);
+  try {
+    const { date, customer } = req.query;
+
+    let filteredOrders = [...orders];
+
+    if (date) {
+      filteredOrders = filteredOrders.filter((order) => {
+        if (!order.createdAt) return false;
+        const orderDate = new Date(order.createdAt).toISOString().slice(0, 10);
+        return orderDate === date;
+      });
+    }
+
+    if (customer) {
+      const query = String(customer).toLowerCase();
+      filteredOrders = filteredOrders.filter((order) => {
+        const name = String(order.customerName || '').toLowerCase();
+        const username = String(order.telegramUsername || '').toLowerCase();
+        const telegramId = String(order.telegramId || '').toLowerCase();
+
+        return (
+          name.includes(query) ||
+          username.includes(query) ||
+          telegramId.includes(query)
+        );
+      });
+    }
+
+    return res.json(filteredOrders);
+  } catch (error) {
+    console.error('Get orders error:', error);
+    return res.status(500).json({ message: 'Failed to fetch orders' });
+  }
 });
 
 router.post('/admin/orders', (req, res) => {
   try {
-    const { customerName, telegramId, items } = req.body || {};
+    const { customerName, telegramId, telegramUsername, items } = req.body || {};
 
     const safeItems = Array.isArray(items) ? items : [];
 
@@ -102,6 +153,7 @@ router.post('/admin/orders', (req, res) => {
       totalAmount,
       createdAt: new Date().toISOString(),
       customerName: customerName || 'Demo Customer',
+      telegramUsername: telegramUsername || '',
       telegramId: telegramId || '123456789',
       items: safeItems,
     };
@@ -112,6 +164,25 @@ router.post('/admin/orders', (req, res) => {
   } catch (error) {
     console.error('Create order error:', error);
     return res.status(500).json({ message: 'Failed to create order' });
+  }
+});
+
+router.delete('/admin/orders/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const index = orders.findIndex((order) => Number(order.id) === id);
+
+    if (index === -1) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    orders.splice(index, 1);
+
+    return res.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    return res.status(500).json({ message: 'Failed to delete order' });
   }
 });
 

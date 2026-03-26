@@ -10,6 +10,9 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [filterDate, setFilterDate] = useState('');
+  const [filterCustomer, setFilterCustomer] = useState('');
+
   const [dayForm, setDayForm] = useState({
     date: '',
   });
@@ -23,29 +26,31 @@ export default function AdminDashboardPage() {
 
   const token = localStorage.getItem('adminToken');
 
-  useEffect(() => {
-    if (!token) {
-      console.warn('No admin token, but auth is disabled for now.');
-    }
+  const headers = useMemo(() => {
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : {};
+  }, [token]);
 
+  useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  const headers = useMemo(() => {
-    return {
-      Authorization: `Bearer ${token}`,
-    };
-  }, [token]);
+  }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError('');
 
+      const ordersUrl = new URL(`${import.meta.env.VITE_API_URL}/admin/orders`);
+      if (filterDate) ordersUrl.searchParams.set('date', filterDate);
+      if (filterCustomer) ordersUrl.searchParams.set('customer', filterCustomer);
+
       const [daysRes, ordersRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_URL}/admin/menu/days`, { headers }),
-        axios.get(`${import.meta.env.VITE_API_URL}/admin/orders`, { headers }),
+        axios.get(ordersUrl.toString(), { headers }),
       ]);
 
       const safeDays = Array.isArray(daysRes.data)
@@ -114,44 +119,65 @@ export default function AdminDashboardPage() {
   };
 
   const handleCreateItem = async (e) => {
-  e.preventDefault(); // 🔥 THIS IS CRITICAL
+    e.preventDefault();
 
-  try {
-    const token = localStorage.getItem('adminToken');
+    try {
+      setError('');
 
-    const headers = {
-      Authorization: `Bearer ${token}`,
-    };
+      const payload = {
+        dayId: Number(itemForm.dayId),
+        name: itemForm.name,
+        price: Number(itemForm.price),
+        quantity: Number(itemForm.quantity),
+      };
 
-    const payload = {
-      dayId: Number(itemForm.dayId),
-      name: itemForm.name,
-      price: Number(itemForm.price),
-      quantity: Number(itemForm.quantity),
-    };
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/admin/menu/items`,
+        payload,
+        { headers }
+      );
 
-    console.log('CREATE ITEM PAYLOAD:', payload);
+      setItemForm({
+        dayId: '',
+        name: '',
+        price: '',
+        quantity: '',
+      });
 
-    await axios.post(
-      `${import.meta.env.VITE_API_URL}/admin/menu/items`,
-      payload,
-      { headers }
-    );
+      await fetchData();
+    } catch (err) {
+      console.error('Create item error:', err?.response?.data || err.message);
+      setError(err?.response?.data?.message || 'Failed to create menu item');
+    }
+  };
 
-    // reset form
-    setItemForm({
-      dayId: '',
-      name: '',
-      price: '',
-      quantity: '',
-    });
+  const handleDeleteDay = async (dayId) => {
+    try {
+      setError('');
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/admin/menu/days/${dayId}`,
+        { headers }
+      );
+      await fetchData();
+    } catch (err) {
+      console.error('Delete day error:', err?.response?.data || err.message);
+      setError(err?.response?.data?.message || 'Failed to delete menu day');
+    }
+  };
 
-    // reload data
-    await fetchData();
-  } catch (err) {
-    console.error('CREATE ITEM ERROR:', err?.response?.data || err.message);
-  }
-};
+  const handleDeleteOrder = async (orderId) => {
+    try {
+      setError('');
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/admin/orders/${orderId}`,
+        { headers }
+      );
+      await fetchData();
+    } catch (err) {
+      console.error('Delete order error:', err?.response?.data || err.message);
+      setError(err?.response?.data?.message || 'Failed to delete order');
+    }
+  };
 
   const totalOrders = Array.isArray(orders) ? orders.length : 0;
 
@@ -174,7 +200,7 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div style={{ padding: '24px', color: '#111' }}>
+    <div style={{ padding: '16px', color: '#111' }}>
       <div
         style={{
           display: 'flex',
@@ -187,17 +213,31 @@ export default function AdminDashboardPage() {
       >
         <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
 
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderRadius: '10px',
-            cursor: 'pointer',
-          }}
-        >
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={fetchData}
+            style={{
+              padding: '10px 16px',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: 'pointer',
+            }}
+          >
+            Refresh
+          </button>
+
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '10px 16px',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: 'pointer',
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -222,56 +262,24 @@ export default function AdminDashboardPage() {
           marginBottom: '28px',
         }}
       >
-        <div
-          style={{
-            padding: '18px',
-            borderRadius: '14px',
-            background: '#f5f5f5',
-          }}
-        >
+        <div style={cardStat}>
           <h3 style={{ marginTop: 0 }}>Menu Days</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
-            {Array.isArray(days) ? days.length : 0}
-          </p>
+          <p style={statNumber}>{Array.isArray(days) ? days.length : 0}</p>
         </div>
 
-        <div
-          style={{
-            padding: '18px',
-            borderRadius: '14px',
-            background: '#f5f5f5',
-          }}
-        >
+        <div style={cardStat}>
           <h3 style={{ marginTop: 0 }}>Orders</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
-            {totalOrders}
-          </p>
+          <p style={statNumber}>{totalOrders}</p>
         </div>
 
-        <div
-          style={{
-            padding: '18px',
-            borderRadius: '14px',
-            background: '#f5f5f5',
-          }}
-        >
+        <div style={cardStat}>
           <h3 style={{ marginTop: 0 }}>Ordered Items</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
-            {totalOrderedItems}
-          </p>
+          <p style={statNumber}>{totalOrderedItems}</p>
         </div>
 
-        <div
-          style={{
-            padding: '18px',
-            borderRadius: '14px',
-            background: '#f5f5f5',
-          }}
-        >
+        <div style={cardStat}>
           <h3 style={{ marginTop: 0 }}>Revenue</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: 0 }}>
-            {totalRevenue}
-          </p>
+          <p style={statNumber}>{totalRevenue}</p>
         </div>
       </div>
 
@@ -283,13 +291,7 @@ export default function AdminDashboardPage() {
           marginBottom: '28px',
         }}
       >
-        <div
-          style={{
-            background: '#fafafa',
-            padding: '20px',
-            borderRadius: '14px',
-          }}
-        >
+        <div style={panel}>
           <h2>Create Menu Day</h2>
 
           <form onSubmit={handleCreateDay}>
@@ -301,37 +303,17 @@ export default function AdminDashboardPage() {
                 value={dayForm.date}
                 onChange={handleDayChange}
                 required
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '6px',
-                  borderRadius: '10px',
-                  border: '1px solid #ccc',
-                }}
+                style={inputStyle}
               />
             </div>
 
-            <button
-              type="submit"
-              style={{
-                padding: '10px 16px',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-              }}
-            >
+            <button type="submit" style={primaryBtn}>
               Create Day
             </button>
           </form>
         </div>
 
-        <div
-          style={{
-            background: '#fafafa',
-            padding: '20px',
-            borderRadius: '14px',
-          }}
-        >
+        <div style={panel}>
           <h2>Create Menu Item</h2>
 
           <form onSubmit={handleCreateItem}>
@@ -342,13 +324,7 @@ export default function AdminDashboardPage() {
                 value={itemForm.dayId}
                 onChange={handleItemChange}
                 required
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '6px',
-                  borderRadius: '10px',
-                  border: '1px solid #ccc',
-                }}
+                style={inputStyle}
               >
                 <option value="">Select day</option>
                 {(Array.isArray(days) ? days : []).map((day) => (
@@ -367,13 +343,7 @@ export default function AdminDashboardPage() {
                 value={itemForm.name}
                 onChange={handleItemChange}
                 required
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '6px',
-                  borderRadius: '10px',
-                  border: '1px solid #ccc',
-                }}
+                style={inputStyle}
               />
             </div>
 
@@ -385,13 +355,7 @@ export default function AdminDashboardPage() {
                 value={itemForm.price}
                 onChange={handleItemChange}
                 required
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '6px',
-                  borderRadius: '10px',
-                  border: '1px solid #ccc',
-                }}
+                style={inputStyle}
               />
             </div>
 
@@ -403,39 +367,18 @@ export default function AdminDashboardPage() {
                 value={itemForm.quantity}
                 onChange={handleItemChange}
                 required
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '6px',
-                  borderRadius: '10px',
-                  border: '1px solid #ccc',
-                }}
+                style={inputStyle}
               />
             </div>
 
-            <button
-              type="submit"
-              style={{
-                padding: '10px 16px',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-              }}
-            >
+            <button type="submit" style={primaryBtn}>
               Create Item
             </button>
           </form>
         </div>
       </div>
 
-      <div
-        style={{
-          background: '#fafafa',
-          padding: '20px',
-          borderRadius: '14px',
-          marginBottom: '24px',
-        }}
-      >
+      <div style={{ ...panel, marginBottom: '24px' }}>
         <h2>Menu Days</h2>
 
         {(Array.isArray(days) ? days : []).length === 0 ? (
@@ -451,7 +394,24 @@ export default function AdminDashboardPage() {
                 marginBottom: '12px',
               }}
             >
-              <strong>{day.date}</strong>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <strong>{day.date}</strong>
+
+                <button
+                  onClick={() => handleDeleteDay(day.id)}
+                  style={dangerBtn}
+                >
+                  Delete Day
+                </button>
+              </div>
 
               <div style={{ marginTop: '8px' }}>
                 {(day.items || []).length === 0 ? (
@@ -471,14 +431,59 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      <div
-        style={{
-          background: '#fafafa',
-          padding: '20px',
-          borderRadius: '14px',
-        }}
-      >
-        <h2>Orders</h2>
+      <div style={panel}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+            marginBottom: '16px',
+          }}
+        >
+          <h2 style={{ margin: 0 }}>Orders</h2>
+
+          <button onClick={fetchData} style={primaryBtn}>
+            Refresh Orders
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '12px',
+            marginBottom: '16px',
+          }}
+        >
+          <div>
+            <label>Filter by date</label>
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label>Filter by customer / username / telegram ID</label>
+            <input
+              type="text"
+              value={filterCustomer}
+              onChange={(e) => setFilterCustomer(e.target.value)}
+              placeholder="Search customer..."
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <button onClick={fetchData} style={primaryBtn}>
+            Apply Filters
+          </button>
+        </div>
 
         {(Array.isArray(orders) ? orders : []).length === 0 ? (
           <p>No orders yet.</p>
@@ -493,15 +498,36 @@ export default function AdminDashboardPage() {
                 marginBottom: '12px',
               }}
             >
-              <div><strong>Order #{order.id}</strong></div>
-              <div>Status: {order.status || 'UNKNOWN'}</div>
-              <div>Customer: {order.customerName || 'Unknown'}</div>
-              <div>Total: {order.totalAmount || order.total || 0}</div>
-              <div>
-                Created:{' '}
-                {order.createdAt
-                  ? new Date(order.createdAt).toLocaleString()
-                  : '-'}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div>
+                  <div><strong>Order #{order.id}</strong></div>
+                  <div>Status: {order.status || 'UNKNOWN'}</div>
+                  <div>Customer: {order.customerName || 'Unknown'}</div>
+                  <div>Username: {order.telegramUsername || '-'}</div>
+                  <div>Telegram ID: {order.telegramId || '-'}</div>
+                  <div>Total: {order.totalAmount || order.total || 0}</div>
+                  <div>
+                    Created:{' '}
+                    {order.createdAt
+                      ? new Date(order.createdAt).toLocaleString()
+                      : '-'}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleDeleteOrder(order.id)}
+                  style={dangerBtn}
+                >
+                  Delete Order
+                </button>
               </div>
 
               <div style={{ marginTop: '8px' }}>
@@ -512,7 +538,7 @@ export default function AdminDashboardPage() {
                   <ul style={{ margin: '8px 0 0 18px' }}>
                     {(order.items || []).map((item) => (
                       <li key={item.id}>
-                        {item.menuItem?.name || item.name || 'Unnamed item'} x{' '}
+                        {(item.menuItem?.name || item.name || 'Unnamed item')} x{' '}
                         {item.quantity || 0}
                       </li>
                     ))}
@@ -526,3 +552,45 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+const cardStat = {
+  padding: '18px',
+  borderRadius: '14px',
+  background: '#f5f5f5',
+};
+
+const statNumber = {
+  fontSize: '24px',
+  fontWeight: 'bold',
+  marginBottom: 0,
+};
+
+const panel = {
+  background: '#fafafa',
+  padding: '20px',
+  borderRadius: '14px',
+};
+
+const inputStyle = {
+  width: '100%',
+  padding: '10px',
+  marginTop: '6px',
+  borderRadius: '10px',
+  border: '1px solid #ccc',
+};
+
+const primaryBtn = {
+  padding: '10px 16px',
+  border: 'none',
+  borderRadius: '10px',
+  cursor: 'pointer',
+};
+
+const dangerBtn = {
+  background: '#ff4d4f',
+  color: '#fff',
+  border: 'none',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+};
