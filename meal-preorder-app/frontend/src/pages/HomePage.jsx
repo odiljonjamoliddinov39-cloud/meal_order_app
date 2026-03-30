@@ -279,6 +279,7 @@ export default function HomePage() {
           .filter((item) => item.isActive);
 
         setItems(activeItems);
+        window.debugItems = activeItems;
 
         const hasMeal = activeItems.some((item) => detectCategory(item) === 'meal');
         const hasCurrent = activeItems.some((item) => detectCategory(item) === activeCategory);
