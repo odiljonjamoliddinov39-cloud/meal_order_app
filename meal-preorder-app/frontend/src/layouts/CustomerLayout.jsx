@@ -85,7 +85,6 @@ export default function CustomerLayout() {
   const user = useMemo(() => getTelegramUser(), []);
   const t = translations[language] || translations.ENG;
 
-  // Telegram init
   useEffect(() => {
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.ready();
@@ -93,12 +92,10 @@ export default function CustomerLayout() {
     }
   }, []);
 
-  // Save language
   useEffect(() => {
     writeLanguage(language);
   }, [language]);
 
-  // Close dropdowns on route change
   useEffect(() => {
     setMenuOpen(false);
     setSettingsOpen(false);
@@ -114,9 +111,10 @@ export default function CustomerLayout() {
   return (
     <div style={styles.shell}>
       <div style={styles.phone}>
+
         {/* TOP BAR */}
         <div style={styles.topBar}>
-          <button style={styles.iconButton} onClick={() => setMenuOpen((v) => !v)}>
+          <button style={styles.iconButton} onClick={() => setMenuOpen(v => !v)}>
             ☰
           </button>
 
@@ -134,7 +132,7 @@ export default function CustomerLayout() {
           </button>
         </div>
 
-        {/* MENU */}
+        {/* DROPDOWN MENU */}
         {menuOpen && (
           <div style={styles.dropdown}>
             <Link to="/web" style={styles.dropdownLink}>{t.menu}</Link>
@@ -229,6 +227,7 @@ export default function CustomerLayout() {
             </div>
           </div>
         )}
+
       </div>
     </div>
   );
@@ -243,6 +242,7 @@ const styles = {
     alignItems: 'center',
     padding: '12px',
   },
+
   phone: {
     width: '100%',
     maxWidth: '430px',
@@ -255,12 +255,14 @@ const styles = {
     flexDirection: 'column',
     position: 'relative',
   },
+
   topBar: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
     marginBottom: '12px',
   },
+
   iconButton: {
     width: '44px',
     height: '44px',
@@ -270,6 +272,7 @@ const styles = {
     fontSize: '20px',
     cursor: 'pointer',
   },
+
   brandBlock: { flex: 1 },
   brandTitle: { fontWeight: 800 },
   brandSub: { fontSize: '12px' },
@@ -282,6 +285,7 @@ const styles = {
     overflow: 'hidden',
     border: 'none',
   },
+
   accountImage: { width: '100%', height: '100%', objectFit: 'cover' },
   accountFallback: { display: 'grid', placeItems: 'center', height: '100%' },
 
@@ -289,12 +293,39 @@ const styles = {
     position: 'absolute',
     top: '68px',
     left: '16px',
-    background: '#fff',
-    borderRadius: '16px',
+    background: '#ffffff',
+    borderRadius: '18px',
     padding: '8px',
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
+    minWidth: '180px',
+    boxShadow: '0 12px 28px rgba(0,0,0,0.14)',
+    zIndex: 50,
+  },
+
+  dropdownLink: {
+    textDecoration: 'none',
+    color: '#145962',
+    fontWeight: 700,
+    fontSize: '15px',
+    padding: '10px 12px',
+    borderRadius: '12px',
+    background: '#f7fbfc',
+    display: 'block',
+  },
+
+  dropdownAction: {
+    border: 'none',
+    background: '#eefbfd',
+    color: '#145962',
+    fontWeight: 700,
+    fontSize: '15px',
+    padding: '10px 12px',
+    borderRadius: '12px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    width: '100%',
   },
 
   outletWrap: { flex: 1, display: 'flex', flexDirection: 'column' },
