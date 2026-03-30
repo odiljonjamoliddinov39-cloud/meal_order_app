@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import '/workspaces/meal_order_app/meal-preorder-app/bot'
 
 import customerRoutes from './routes/CustomerRoutes.js';
 import adminRoutes from './routes/AdminRoutes.js';
