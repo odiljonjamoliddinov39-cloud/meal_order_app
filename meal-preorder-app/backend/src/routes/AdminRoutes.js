@@ -149,10 +149,22 @@ router.post('/admin/orders', (req, res) => {
 
     const safeItems = Array.isArray(items) ? items : [];
 
-    const totalAmount = safeItems.reduce((sum, item) => {
-      const price = Number(item?.menuItem?.price || item?.price || 0);
-      const qty = Number(item?.quantity || 0);
-      return sum + price * qty;
+    const normalizedItems = safeItems.map((item, index) => ({
+      id: item.id || index + 1,
+      quantity: Number(item.quantity || 0),
+      name: item.name || item?.menuItem?.name || '',
+      price: Number(item.price || item?.menuItem?.price || 0),
+      type: item.type || item?.menuItem?.type || 'meal',
+      menuItem: item.menuItem
+        ? {
+            ...item.menuItem,
+            type: item.menuItem.type || item.type || 'meal',
+          }
+        : undefined,
+    }));
+
+    const totalAmount = normalizedItems.reduce((sum, item) => {
+      return sum + Number(item.price || 0) * Number(item.quantity || 0);
     }, 0);
 
     const newOrder = {
@@ -160,7 +172,7 @@ router.post('/admin/orders', (req, res) => {
       createdAt: new Date().toISOString(),
       customerName: customerName || '',
       telegramId: telegramId || '',
-      items: safeItems,
+      items: normalizedItems,
       totalAmount,
     };
 
@@ -170,6 +182,53 @@ router.post('/admin/orders', (req, res) => {
   } catch (error) {
     console.error('Create order error:', error);
     return res.status(500).json({ message: 'Failed to create order' });
+  }
+});
+
+router.put('/admin/orders/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const orderIndex = orders.findIndex((order) => Number(order.id) === id);
+
+    if (orderIndex === -1) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const currentOrder = orders[orderIndex];
+    const { customerName, telegramId, items } = req.body || {};
+
+    const safeItems = Array.isArray(items) ? items : currentOrder.items || [];
+
+    const normalizedItems = safeItems.map((item, index) => ({
+      id: item.id || index + 1,
+      quantity: Number(item.quantity || 0),
+      name: item.name || item?.menuItem?.name || '',
+      price: Number(item.price || item?.menuItem?.price || 0),
+      type: item.type || item?.menuItem?.type || 'meal',
+      menuItem: item.menuItem
+        ? {
+            ...item.menuItem,
+            type: item.menuItem.type || item.type || 'meal',
+          }
+        : undefined,
+    }));
+
+    const totalAmount = normalizedItems.reduce((sum, item) => {
+      return sum + Number(item.price || 0) * Number(item.quantity || 0);
+    }, 0);
+
+    orders[orderIndex] = {
+      ...currentOrder,
+      customerName: customerName ?? currentOrder.customerName,
+      telegramId: telegramId ?? currentOrder.telegramId,
+      items: normalizedItems,
+      totalAmount,
+    };
+
+    return res.json(orders[orderIndex]);
+  } catch (error) {
+    console.error('Update order error:', error);
+    return res.status(500).json({ message: 'Failed to update order' });
   }
 });
 

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 
 export default function AdminDashboardPage() {
   const [days, setDays] = useState([]);
@@ -14,6 +15,13 @@ export default function AdminDashboardPage() {
     price: '',
     quantity: '',
     type: 'meal',
+  });
+
+  const [editingOrderId, setEditingOrderId] = useState(null);
+  const [editOrderForm, setEditOrderForm] = useState({
+    customerName: '',
+    telegramId: '',
+    itemsText: '',
   });
 
   const API = import.meta.env.VITE_API_URL;
@@ -39,6 +47,20 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const totalOrders = orders.length;
+  const totalRevenue = orders.reduce(
+    (sum, order) => sum + Number(order.totalAmount || 0),
+    0
+  );
+  const totalItems = orders.reduce(
+    (sum, order) => sum + (Array.isArray(order.items) ? order.items.length : 0),
+    0
+  );
+
+  const sortedMenuDays = useMemo(() => {
+    return [...days].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [days]);
 
   const createDay = async (e) => {
     e.preventDefault();
@@ -104,15 +126,82 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.totalAmount || 0),
-    0
-  );
-  const totalItems = orders.reduce(
-    (sum, order) => sum + (Array.isArray(order.items) ? order.items.length : 0),
-    0
-  );
+  const startEditOrder = (order) => {
+    const itemsText = (order.items || [])
+      .map(
+        (item) =>
+          `${item.name || item?.menuItem?.name || ''}|${item.quantity || 0}|${item.price || item?.menuItem?.price || 0}|${item.type || item?.menuItem?.type || 'meal'}`
+      )
+      .join('\n');
+
+    setEditingOrderId(order.id);
+    setEditOrderForm({
+      customerName: order.customerName || '',
+      telegramId: order.telegramId || '',
+      itemsText,
+    });
+  };
+
+  const cancelEditOrder = () => {
+    setEditingOrderId(null);
+    setEditOrderForm({
+      customerName: '',
+      telegramId: '',
+      itemsText: '',
+    });
+  };
+
+  const saveEditOrder = async () => {
+    try {
+      const parsedItems = editOrderForm.itemsText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          const [name, quantity, price, type] = line.split('|');
+          return {
+            id: index + 1,
+            name: (name || '').trim(),
+            quantity: Number(quantity || 0),
+            price: Number(price || 0),
+            type: (type || 'meal').trim(),
+          };
+        });
+
+      await axios.put(`${API}/admin/orders/${editingOrderId}`, {
+        customerName: editOrderForm.customerName,
+        telegramId: editOrderForm.telegramId,
+        items: parsedItems,
+      });
+
+      cancelEditOrder();
+      await fetchData();
+    } catch (error) {
+      console.error('SAVE ORDER ERROR:', error?.response?.data || error.message);
+    }
+  };
+
+  const exportOrdersXLS = () => {
+    const rows = orders.map((order) => ({
+      orderId: order.id,
+      customerName: order.customerName || '',
+      telegramId: order.telegramId || '',
+      createdAt: order.createdAt || '',
+      totalAmount: order.totalAmount || 0,
+      items: (order.items || [])
+        .map(
+          (item) =>
+            `${item.name || item?.menuItem?.name || ''} x${item.quantity || 0} (${item.type || item?.menuItem?.type || 'meal'})`
+        )
+        .join(', '),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+    XLSX.writeFile(workbook, 'orders.xlsx');
+  };
 
   return (
     <div style={styles.page}>
@@ -122,9 +211,14 @@ export default function AdminDashboardPage() {
           <p style={styles.subtitle}>Manage menu and orders</p>
         </div>
 
-        <button onClick={fetchData} style={styles.primaryButton}>
-          Refresh
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button onClick={fetchData} style={styles.primaryButton}>
+            Refresh
+          </button>
+          <button onClick={exportOrdersXLS} style={styles.primaryButton}>
+            Download XLS
+          </button>
+        </div>
       </div>
 
       <div style={styles.statsGrid}>
@@ -181,7 +275,7 @@ export default function AdminDashboardPage() {
               required
             >
               <option value="">Select day</option>
-              {days.map((day) => (
+              {sortedMenuDays.map((day) => (
                 <option key={day.id} value={day.id}>
                   {day.date}
                 </option>
@@ -244,11 +338,11 @@ export default function AdminDashboardPage() {
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>Menu Days</h2>
 
-        {days.length === 0 ? (
+        {sortedMenuDays.length === 0 ? (
           <div style={styles.emptyCard}>No menu days yet.</div>
         ) : (
           <div style={styles.cardsGrid}>
-            {days.map((day) => (
+            {sortedMenuDays.map((day) => (
               <div key={day.id} style={styles.dayCard}>
                 <div style={styles.cardTop}>
                   <strong style={styles.cardTitle}>{day.date}</strong>
@@ -304,18 +398,33 @@ export default function AdminDashboardPage() {
                 <div style={styles.cardTop}>
                   <strong style={styles.cardTitle}>Order #{order.id}</strong>
 
-                  <button
-                    onClick={() => deleteOrder(order.id)}
-                    style={styles.dangerButton}
-                  >
-                    Delete
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => startEditOrder(order)}
+                      style={styles.primaryButtonSmall}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      onClick={() => deleteOrder(order.id)}
+                      style={styles.dangerButton}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
 
                 <div style={styles.orderItems}>
                   {(order.items || []).map((item) => (
                     <div key={item.id} style={styles.orderItemRow}>
-                      <span>{item.name}</span>
+                      <span>
+                        {item.name || item?.menuItem?.name || ''}
+                        {' '}
+                        <span style={styles.typeBadge}>
+                          ({item.type || item?.menuItem?.type || 'meal'})
+                        </span>
+                      </span>
                       <span>x{item.quantity}</span>
                     </div>
                   ))}
@@ -330,6 +439,58 @@ export default function AdminDashboardPage() {
                       : '-'}
                   </span>
                 </div>
+
+                {editingOrderId === order.id && (
+                  <div style={styles.editBox}>
+                    <input
+                      type="text"
+                      placeholder="Customer name"
+                      value={editOrderForm.customerName}
+                      onChange={(e) =>
+                        setEditOrderForm((prev) => ({
+                          ...prev,
+                          customerName: e.target.value,
+                        }))
+                      }
+                      style={styles.input}
+                    />
+
+                    <input
+                      type="text"
+                      placeholder="Telegram ID"
+                      value={editOrderForm.telegramId}
+                      onChange={(e) =>
+                        setEditOrderForm((prev) => ({
+                          ...prev,
+                          telegramId: e.target.value,
+                        }))
+                      }
+                      style={styles.input}
+                    />
+
+                    <textarea
+                      rows={6}
+                      placeholder="name|quantity|price|type"
+                      value={editOrderForm.itemsText}
+                      onChange={(e) =>
+                        setEditOrderForm((prev) => ({
+                          ...prev,
+                          itemsText: e.target.value,
+                        }))
+                      }
+                      style={styles.textarea}
+                    />
+
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <button onClick={saveEditOrder} style={styles.primaryButton}>
+                        Save Order
+                      </button>
+                      <button onClick={cancelEditOrder} style={styles.smallDangerButton}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -415,12 +576,31 @@ const styles = {
     boxSizing: 'border-box',
     fontSize: '14px',
   },
+  textarea: {
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: '12px',
+    border: '1px solid #d9e4f1',
+    background: '#fff',
+    boxSizing: 'border-box',
+    fontSize: '14px',
+    resize: 'vertical',
+  },
   primaryButton: {
     border: 'none',
     background: '#1f7aec',
     color: '#fff',
     padding: '12px 16px',
     borderRadius: '12px',
+    cursor: 'pointer',
+    fontWeight: 700,
+  },
+  primaryButtonSmall: {
+    border: 'none',
+    background: '#1f7aec',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '10px',
     cursor: 'pointer',
     fontWeight: 700,
   },
@@ -543,5 +723,14 @@ const styles = {
     borderRadius: '999px',
     fontSize: '13px',
     color: '#44576d',
+  },
+  editBox: {
+    marginTop: '14px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    background: '#f7fbff',
+    padding: '14px',
+    borderRadius: '14px',
   },
 };

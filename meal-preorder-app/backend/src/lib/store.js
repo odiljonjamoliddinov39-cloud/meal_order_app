@@ -12,6 +12,7 @@ export const menuDays = [
         name: 'Plov',
         price: 25000,
         quantity: 10,
+        type: 'meal',
       },
     ],
   },
@@ -20,19 +21,22 @@ export const menuDays = [
 export const orders = [
   {
     id: 1,
-    status: 'PENDING',
     totalAmount: 25000,
     createdAt: new Date().toISOString(),
-    customerName: 'Demo Customer',
-    telegramId: '123456789',
+    customerName: '',
+    telegramId: '',
     items: [
       {
         id: 1,
         quantity: 1,
+        name: 'Plov',
+        price: 25000,
+        type: 'meal',
         menuItem: {
           id: 1,
           name: 'Plov',
           price: 25000,
+          type: 'meal',
         },
       },
     ],
