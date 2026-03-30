@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 
 import customerRoutes from './routes/CustomerRoutes.js';
 import adminRoutes from './routes/AdminRoutes.js';
+import './bot.js'
 
 dotenv.config();
 
