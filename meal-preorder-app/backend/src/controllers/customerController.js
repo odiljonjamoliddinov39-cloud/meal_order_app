@@ -38,6 +38,7 @@ export const getMenuItemsByDate = async (req, res) => {
       imageUrl: item.imageUrl || null,
       availableQuantity: Number(item.quantity || 0),
       date: day.date,
+      type: item.type || 'meal', // ✅ important fix
     }));
 
     return res.json(items);
@@ -70,7 +71,9 @@ export const createOrder = async (req, res) => {
       let foundItem = null;
 
       for (const day of menuDays) {
-        const item = (day.items || []).find((menuItem) => Number(menuItem.id) === itemId);
+        const item = (day.items || []).find(
+          (menuItem) => Number(menuItem.id) === itemId
+        );
         if (item) {
           foundItem = item;
           break;
@@ -91,11 +94,15 @@ export const createOrder = async (req, res) => {
 
       normalizedItems.push({
         id: foundItem.id,
+        name: foundItem.name,
+        price: Number(foundItem.price),
         quantity,
+        type: foundItem.type || 'meal', // ✅ important fix
         menuItem: {
           id: foundItem.id,
           name: foundItem.name,
           price: Number(foundItem.price),
+          type: foundItem.type || 'meal', // ✅ important fix
         },
       });
 
@@ -106,13 +113,16 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'No valid items in order' });
     }
 
+    const firstName = req.user?.firstName || '';
+    const lastName = req.user?.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+
     const newOrder = {
       id: getNextOrderId(),
-      status: 'PENDING',
       totalAmount,
       createdAt: new Date().toISOString(),
-      customerName: req.user?.firstName || 'Demo Customer',
-      telegramId: req.user?.telegramId || '123456789',
+      customerName: fullName || firstName || '', // ✅ no Demo Customer
+      telegramId: req.user?.telegramId || '',
       items: normalizedItems,
     };
 
