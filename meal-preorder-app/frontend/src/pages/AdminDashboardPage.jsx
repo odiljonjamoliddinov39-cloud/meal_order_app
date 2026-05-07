@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
 import * as XLSX from 'xlsx';
+import api from '../api/client.js';
 
 export default function AdminDashboardPage() {
   const [days, setDays] = useState([]);
@@ -19,20 +19,16 @@ export default function AdminDashboardPage() {
 
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editOrderForm, setEditOrderForm] = useState({
-    customerName: '',
-    telegramId: '',
-    itemsText: '',
+    status: 'CONFIRMED',
   });
-
-  const API = import.meta.env.VITE_API_URL;
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
       const [daysRes, ordersRes] = await Promise.all([
-        axios.get(`${API}/admin/menu/days`),
-        axios.get(`${API}/admin/orders`),
+        api.get('/admin/menu/days'),
+        api.get('/admin/orders'),
       ]);
 
       setDays(Array.isArray(daysRes.data) ? daysRes.data : []);
@@ -66,7 +62,7 @@ export default function AdminDashboardPage() {
     e.preventDefault();
 
     try {
-      await axios.post(`${API}/admin/menu/days`, dayForm);
+      await api.post('/admin/menu/days', dayForm);
       setDayForm({ date: '' });
       await fetchData();
     } catch (error) {
@@ -78,9 +74,9 @@ export default function AdminDashboardPage() {
     e.preventDefault();
 
     try {
-      await axios.post(`${API}/admin/menu/items`, {
+      await api.post('/admin/menu/items', {
         ...itemForm,
-        dayId: Number(itemForm.dayId),
+        dayId: itemForm.dayId,
         price: Number(itemForm.price),
         quantity: Number(itemForm.quantity),
       });
@@ -101,7 +97,7 @@ export default function AdminDashboardPage() {
 
   const deleteDay = async (dayId) => {
     try {
-      await axios.delete(`${API}/admin/menu/days/${dayId}`);
+      await api.delete(`/admin/menu/days/${dayId}`);
       await fetchData();
     } catch (error) {
       console.error('DELETE DAY ERROR:', error?.response?.data || error.message);
@@ -110,7 +106,7 @@ export default function AdminDashboardPage() {
 
   const deleteItem = async (dayId, itemId) => {
     try {
-      await axios.delete(`${API}/admin/menu/items/${dayId}/${itemId}`);
+      await api.delete(`/admin/menu/items/${itemId}`);
       await fetchData();
     } catch (error) {
       console.error('DELETE ITEM ERROR:', error?.response?.data || error.message);
@@ -119,7 +115,7 @@ export default function AdminDashboardPage() {
 
   const deleteOrder = async (orderId) => {
     try {
-      await axios.delete(`${API}/admin/orders/${orderId}`);
+      await api.delete(`/admin/orders/${orderId}`);
       await fetchData();
     } catch (error) {
       console.error('DELETE ORDER ERROR:', error?.response?.data || error.message);
@@ -127,51 +123,23 @@ export default function AdminDashboardPage() {
   };
 
   const startEditOrder = (order) => {
-    const itemsText = (order.items || [])
-      .map(
-        (item) =>
-          `${item.name || item?.menuItem?.name || ''}|${item.quantity || 0}|${item.price || item?.menuItem?.price || 0}|${item.type || item?.menuItem?.type || 'meal'}`
-      )
-      .join('\n');
-
     setEditingOrderId(order.id);
     setEditOrderForm({
-      customerName: order.customerName || '',
-      telegramId: order.telegramId || '',
-      itemsText,
+      status: order.status || 'CONFIRMED',
     });
   };
 
   const cancelEditOrder = () => {
     setEditingOrderId(null);
     setEditOrderForm({
-      customerName: '',
-      telegramId: '',
-      itemsText: '',
+      status: 'CONFIRMED',
     });
   };
 
   const saveEditOrder = async () => {
     try {
-      const parsedItems = editOrderForm.itemsText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line, index) => {
-          const [name, quantity, price, type] = line.split('|');
-          return {
-            id: index + 1,
-            name: (name || '').trim(),
-            quantity: Number(quantity || 0),
-            price: Number(price || 0),
-            type: (type || 'meal').trim(),
-          };
-        });
-
-      await axios.put(`${API}/admin/orders/${editingOrderId}`, {
-        customerName: editOrderForm.customerName,
-        telegramId: editOrderForm.telegramId,
-        items: parsedItems,
+      await api.put(`/admin/orders/${editingOrderId}`, {
+        status: editOrderForm.status,
       });
 
       cancelEditOrder();
@@ -186,6 +154,7 @@ export default function AdminDashboardPage() {
       orderId: order.id,
       customerName: order.customerName || '',
       telegramId: order.telegramId || '',
+      status: order.status || '',
       createdAt: order.createdAt || '',
       totalAmount: order.totalAmount || 0,
       items: (order.items || [])
@@ -432,6 +401,7 @@ export default function AdminDashboardPage() {
 
                 <div style={styles.orderMetaRow}>
                   <span style={styles.metaPill}>{order.customerName || '-'}</span>
+                  <span style={styles.metaPill}>{order.status || 'CONFIRMED'}</span>
                   <span style={styles.metaPill}>{order.totalAmount || 0} so'm</span>
                   <span style={styles.metaPill}>
                     {order.createdAt
@@ -442,44 +412,20 @@ export default function AdminDashboardPage() {
 
                 {editingOrderId === order.id && (
                   <div style={styles.editBox}>
-                    <input
-                      type="text"
-                      placeholder="Customer name"
-                      value={editOrderForm.customerName}
+                    <select
+                      value={editOrderForm.status}
                       onChange={(e) =>
                         setEditOrderForm((prev) => ({
                           ...prev,
-                          customerName: e.target.value,
+                          status: e.target.value,
                         }))
                       }
                       style={styles.input}
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="Telegram ID"
-                      value={editOrderForm.telegramId}
-                      onChange={(e) =>
-                        setEditOrderForm((prev) => ({
-                          ...prev,
-                          telegramId: e.target.value,
-                        }))
-                      }
-                      style={styles.input}
-                    />
-
-                    <textarea
-                      rows={6}
-                      placeholder="name|quantity|price|type"
-                      value={editOrderForm.itemsText}
-                      onChange={(e) =>
-                        setEditOrderForm((prev) => ({
-                          ...prev,
-                          itemsText: e.target.value,
-                        }))
-                      }
-                      style={styles.textarea}
-                    />
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="CONFIRMED">Confirmed</option>
+                      <option value="CANCELLED">Cancelled</option>
+                    </select>
 
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <button onClick={saveEditOrder} style={styles.primaryButton}>

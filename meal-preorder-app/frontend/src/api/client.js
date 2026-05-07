@@ -1,12 +1,30 @@
 import axios from 'axios';
 
+export function getApiBaseURL() {
+  const configured = import.meta.env.VITE_API_URL?.trim();
+
+  if (typeof window !== 'undefined') {
+    const { protocol, host } = window.location;
+    const isCodespacesHost = host.endsWith('.app.github.dev');
+    const pointsToLocalhost =
+      configured?.includes('localhost') || configured?.includes('127.0.0.1');
+
+    if (isCodespacesHost && (!configured || pointsToLocalhost)) {
+      const apiHost = host.replace(/-\d+\.app\.github\.dev$/, '-4000.app.github.dev');
+      return `${protocol}//${apiHost}/api`;
+    }
+  }
+
+  return configured || 'http://localhost:4000/api';
+}
+
 const api = axios.create({
-  baseURL: 'https://meal-order-app-n8ec.onrender.com/api',
+  baseURL: getApiBaseURL(),
 });
 
 api.interceptors.request.use((config) => {
-  let telegramUserId = '123456789';
-  let telegramUserName = 'Demo User';
+  let telegramUserId = import.meta.env.VITE_DEV_USER_ID || '123456789';
+  let telegramUserName = import.meta.env.VITE_DEV_USER_NAME || 'Demo User';
 
   if (window.Telegram && window.Telegram.WebApp) {
     const tgUser = window.Telegram.WebApp.initDataUnsafe?.user;

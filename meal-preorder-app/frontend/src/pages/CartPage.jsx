@@ -59,8 +59,8 @@ function normalizeCart(raw) {
       ...item,
       qty: Math.max(1, Number(item?.qty) || 1),
       price: Number(item?.price) || 0,
-      menuItemId: Number(item?.menuItemId || item?.id || 0),
-      menuDayId: Number(item?.menuDayId || 0),
+      menuItemId: String(item?.menuItemId || item?.id || ''),
+      menuDayId: String(item?.menuDayId || ''),
     }))
     .filter((item) => item.menuItemId && item.menuDayId);
 }
@@ -128,11 +128,11 @@ export default function CartPage() {
   async function placeOrder() {
     if (!cart.length || submitting) return;
 
-    const firstDayId = Number(cart[0]?.menuDayId || 0);
+    const firstDayId = String(cart[0]?.menuDayId || '');
     const sameDay = cart.every(
       (item) =>
-        Number(item.menuDayId || 0) === firstDayId &&
-        Number(item.menuItemId || 0) > 0 &&
+        String(item.menuDayId || '') === firstDayId &&
+        String(item.menuItemId || '') &&
         Number(item.qty || 0) > 0
     );
 
@@ -148,7 +148,7 @@ export default function CartPage() {
       const payload = {
         menuDayId: firstDayId,
         items: cart.map((item) => ({
-          itemId: Number(item.menuItemId),
+          itemId: String(item.menuItemId),
           quantity: Number(item.qty),
         })),
       };

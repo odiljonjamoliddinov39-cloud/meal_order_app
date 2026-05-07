@@ -1,0 +1,994 @@
+diff --git a/meal-preorder-app/backend/prisma/schema.prisma b/meal-preorder-app/backend/prisma/schema.prisma
+index 59b63ca..9086e0e 100644
+--- a/meal-preorder-app/backend/prisma/schema.prisma
++++ b/meal-preorder-app/backend/prisma/schema.prisma
+@@ -53,6 +53,7 @@ model MenuItem {
+   price           Decimal     @db.Decimal(10, 2)
+   plannedQuantity Int
+   orderedQuantity Int         @default(0)
++  type            String      @default("meal")
+   isActive        Boolean     @default(true)
+   createdAt       DateTime    @default(now())
+   updatedAt       DateTime    @updatedAt
+diff --git a/meal-preorder-app/backend/src/controllers/customerController.js b/meal-preorder-app/backend/src/controllers/customerController.js
+index f3188ea..bb39dff 100644
+--- a/meal-preorder-app/backend/src/controllers/customerController.js
++++ b/meal-preorder-app/backend/src/controllers/customerController.js
+@@ -1,12 +1,26 @@
+-import { menuDays, orders, getNextOrderId } from '../lib/store.js';
++import { prisma } from '../config/prisma.js';
+ 
+ export const getMenuDays = async (req, res) => {
+   try {
+-    const result = menuDays.map((day) => ({
++    const days = await prisma.menuDay.findMany({
++      where: {
++        isOpen: true,
++      },
++      include: {
++        items: {
++          where: { isActive: true },
++        },
++      },
++      orderBy: {
++        date: 'asc',
++      },
++    });
++
++    const result = days.map((day) => ({
+       id: day.id,
+-      date: day.date,
+-      label: day.date,
+-      itemsCount: Array.isArray(day.items) ? day.items.length : 0,
++      date: day.date.toISOString().slice(0, 10),
++      label: day.date.toISOString().slice(0, 10),
++      itemsCount: day.items.length,
+     }));
+ 
+     return res.json(result);
+@@ -24,21 +38,40 @@ export const getMenuItemsByDate = async (req, res) => {
+       return res.status(400).json({ message: 'date query is required' });
+     }
+ 
+-    const day = menuDays.find((item) => item.date === date);
++    const start = new Date(date);
++    const end = new Date(date);
++    end.setDate(end.getDate() + 1);
++
++    const day = await prisma.menuDay.findFirst({
++      where: {
++        date: {
++          gte: start,
++          lt: end,
++        },
++        isOpen: true,
++      },
++      include: {
++        items: {
++          where: { isActive: true },
++          orderBy: { createdAt: 'asc' },
++        },
++      },
++    });
+ 
+     if (!day) {
+       return res.json([]);
+     }
+ 
+-    const items = (day.items || []).map((item) => ({
++    const items = day.items.map((item) => ({
+       id: item.id,
+       name: item.name,
+       description: item.description || '',
+       price: Number(item.price || 0),
+       imageUrl: item.imageUrl || null,
+-      availableQuantity: Number(item.quantity || 0),
+-      date: day.date,
+-      type: item.type || 'meal', // ✅ important fix
++      availableQuantity:
++        Number(item.plannedQuantity || 0) - Number(item.orderedQuantity || 0),
++      date: day.date.toISOString().slice(0, 10),
++      type: item.type || 'meal',
+     }));
+ 
+     return res.json(items);
+@@ -57,98 +90,150 @@ export const createOrder = async (req, res) => {
+       return res.status(400).json({ message: 'Order items are required' });
+     }
+ 
+-    const normalizedItems = [];
+-    let totalAmount = 0;
++    const telegramId = String(req.user?.telegramId || req.user?.id || '');
+ 
+-    for (const rawItem of safeItems) {
+-      const itemId = Number(rawItem.itemId || rawItem.id);
+-      const quantity = Number(rawItem.quantity || 0);
++    if (!telegramId) {
++      return res.status(401).json({ message: 'Telegram auth required' });
++    }
+ 
+-      if (!itemId || quantity <= 0) {
+-        continue;
+-      }
++    const order = await prisma.$transaction(async (tx) => {
++      const user = await tx.user.upsert({
++        where: { telegramId },
++        update: {
++          firstName: req.user?.firstName || '',
++          lastName: req.user?.lastName || '',
++          username: req.user?.username || '',
++          photoUrl: req.user?.photoUrl || null,
++        },
++        create: {
++          telegramId,
++          firstName: req.user?.firstName || '',
++          lastName: req.user?.lastName || '',
++          username: req.user?.username || '',
++          photoUrl: req.user?.photoUrl || null,
++          role: 'CUSTOMER',
++        },
++      });
+ 
+-      let foundItem = null;
++      const normalizedItems = [];
++      let totalAmount = 0;
++      let menuDayId = null;
+ 
+-      for (const day of menuDays) {
+-        const item = (day.items || []).find(
+-          (menuItem) => Number(menuItem.id) === itemId
+-        );
+-        if (item) {
+-          foundItem = item;
+-          break;
+-        }
+-      }
++      for (const rawItem of safeItems) {
++        const itemId = String(rawItem.itemId || rawItem.id || '');
++        const quantity = Number(rawItem.quantity || 0);
+ 
+-      if (!foundItem) {
+-        continue;
+-      }
++        if (!itemId || quantity <= 0) continue;
+ 
+-      if (Number(foundItem.quantity) < quantity) {
+-        return res.status(400).json({
+-          message: `Not enough quantity for ${foundItem.name}`,
++        const menuItem = await tx.menuItem.findUnique({
++          where: { id: itemId },
++          include: { menuDay: true },
+         });
+-      }
+ 
+-      foundItem.quantity = Number(foundItem.quantity) - quantity;
+-
+-      normalizedItems.push({
+-        id: foundItem.id,
+-        name: foundItem.name,
+-        price: Number(foundItem.price),
+-        quantity,
+-        type: foundItem.type || 'meal', // ✅ important fix
+-        menuItem: {
+-          id: foundItem.id,
+-          name: foundItem.name,
+-          price: Number(foundItem.price),
+-          type: foundItem.type || 'meal', // ✅ important fix
+-        },
+-      });
++        if (!menuItem || !menuItem.isActive) continue;
+ 
+-      totalAmount += Number(foundItem.price) * quantity;
+-    }
++        const available =
++          Number(menuItem.plannedQuantity || 0) -
++          Number(menuItem.orderedQuantity || 0);
+ 
+-    if (normalizedItems.length === 0) {
+-      return res.status(400).json({ message: 'No valid items in order' });
+-    }
++        if (available < quantity) {
++          throw new Error(`Not enough quantity for ${menuItem.name}`);
++        }
+ 
+-    const firstName = req.user?.firstName || '';
+-    const lastName = req.user?.lastName || '';
+-    const fullName = `${firstName} ${lastName}`.trim();
++        if (!menuDayId) {
++          menuDayId = menuItem.menuDayId;
++        }
++
++        if (menuDayId !== menuItem.menuDayId) {
++          throw new Error('All order items must be from the same menu day');
++        }
++
++        await tx.menuItem.update({
++          where: { id: menuItem.id },
++          data: {
++            orderedQuantity: {
++              increment: quantity,
++            },
++          },
++        });
+ 
+-    const newOrder = {
+-      id: getNextOrderId(),
+-      totalAmount,
+-      createdAt: new Date().toISOString(),
+-      customerName: fullName || firstName || '', // ✅ no Demo Customer
+-      telegramId: req.user?.telegramId || '',
+-      items: normalizedItems,
+-    };
++        const price = Number(menuItem.price);
++        const subtotal = price * quantity;
++        totalAmount += subtotal;
++
++        normalizedItems.push({
++          menuItemId: menuItem.id,
++          quantity,
++          priceAtOrderTime: price,
++          subtotal,
++        });
++      }
++
++      if (normalizedItems.length === 0 || !menuDayId) {
++        throw new Error('No valid items in order');
++      }
+ 
+-    orders.unshift(newOrder);
++      return tx.order.create({
++        data: {
++          userId: user.id,
++          menuDayId,
++          totalAmount,
++          status: 'CONFIRMED',
++          items: {
++            create: normalizedItems,
++          },
++        },
++        include: {
++          user: true,
++          items: {
++            include: {
++              menuItem: true,
++            },
++          },
++        },
++      });
++    });
+ 
+     return res.status(201).json({
+       message: 'Order created successfully',
+-      order: newOrder,
++      order,
+     });
+   } catch (error) {
+     console.error('createOrder error:', error);
+-    return res.status(500).json({ message: 'Failed to create order' });
++    return res.status(400).json({ message: error.message || 'Failed to create order' });
+   }
+ };
+ 
+ export const getMyOrders = async (req, res) => {
+   try {
+-    const telegramId = String(req.user?.telegramId || '');
++    const telegramId = String(req.user?.telegramId || req.user?.id || '');
++
++    if (!telegramId) {
++      return res.status(401).json({ message: 'Telegram auth required' });
++    }
+ 
+-    const myOrders = orders.filter(
+-      (order) => String(order.telegramId || '') === telegramId
+-    );
++    const myOrders = await prisma.order.findMany({
++      where: {
++        user: {
++          telegramId,
++        },
++      },
++      include: {
++        items: {
++          include: {
++            menuItem: true,
++          },
++        },
++        menuDay: true,
++      },
++      orderBy: {
++        createdAt: 'desc',
++      },
++    });
+ 
+     return res.json(myOrders);
+   } catch (error) {
+     console.error('getMyOrders error:', error);
+     return res.status(500).json({ message: 'Failed to fetch orders' });
+   }
+-};
++};
+\ No newline at end of file
+diff --git a/meal-preorder-app/backend/src/index.js b/meal-preorder-app/backend/src/index.js
+index e9c9d23..a830040 100644
+--- a/meal-preorder-app/backend/src/index.js
++++ b/meal-preorder-app/backend/src/index.js
+@@ -10,7 +10,21 @@ dotenv.config();
+ 
+ const app = express();
+ 
+-app.use(cors());
++app.use(
++  cors({
++    origin: true,
++    credentials: true,
++    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
++    allowedHeaders: [
++      'Content-Type',
++      'Authorization',
++      'x-telegram-user-id',
++      'x-telegram-user-name',
++    ],
++  })
++);
++
++app.options('*', cors());
+ app.use(express.json());
+ 
+ app.get('/', (req, res) => {
+diff --git a/meal-preorder-app/backend/src/middleware/requireTelegramAuth.js b/meal-preorder-app/backend/src/middleware/requireTelegramAuth.js
+index 34694d9..0661904 100644
+--- a/meal-preorder-app/backend/src/middleware/requireTelegramAuth.js
++++ b/meal-preorder-app/backend/src/middleware/requireTelegramAuth.js
+@@ -1,20 +1,40 @@
+ export default function requireTelegramAuth(req, res, next) {
+   try {
++    const isDev = process.env.NODE_ENV !== 'production';
++
+     const telegramUserId =
+       req.headers['x-telegram-user-id'] ||
+-      req.query.telegramUserId;
++      req.query.telegramUserId ||
++      req.query.userId;
+ 
+     const telegramUserName =
+       req.headers['x-telegram-user-name'] ||
+       req.query.telegramUserName ||
++      req.query.userName ||
+       'Demo Customer';
+ 
+-    // Dev mode bypass
+     if (telegramUserId) {
+       req.user = {
+         telegramId: String(telegramUserId),
+-        firstName: telegramUserName,
++        firstName: String(telegramUserName),
++        lastName: '',
++        username: String(telegramUserName).replace(/\s+/g, '_').toLowerCase(),
++        photoUrl: null,
+       };
++
++      return next();
++    }
++
++    // Local/Codespaces development fallback
++    if (isDev) {
++      req.user = {
++        telegramId: '123456789',
++        firstName: 'Demo',
++        lastName: 'Customer',
++        username: 'demo_customer',
++        photoUrl: null,
++      };
++
+       return next();
+     }
+ 
+@@ -23,6 +43,7 @@ export default function requireTelegramAuth(req, res, next) {
+     });
+   } catch (error) {
+     console.error('Telegram auth error:', error);
++
+     return res.status(500).json({
+       message: 'Telegram auth middleware failed',
+       error: error.message,
+diff --git a/meal-preorder-app/backend/src/routes/AdminRoutes.js b/meal-preorder-app/backend/src/routes/AdminRoutes.js
+index 06a0e96..e6ba3eb 100644
+--- a/meal-preorder-app/backend/src/routes/AdminRoutes.js
++++ b/meal-preorder-app/backend/src/routes/AdminRoutes.js
+@@ -1,12 +1,6 @@
+ import { Router } from 'express';
+ import { loginAdmin } from '../controllers/adminController.js';
+-import {
+-  menuDays,
+-  orders,
+-  getNextDayId,
+-  getNextItemId,
+-  getNextOrderId,
+-} from '../lib/store.js';
++import { prisma } from '../config/prisma.js';
+ 
+ const router = Router();
+ 
+@@ -14,241 +8,179 @@ router.post('/admin/login', loginAdmin);
+ 
+ // ===================== MENU DAYS =====================
+ 
+-router.get('/admin/menu/days', (req, res) => {
+-  res.json(menuDays);
++// GET ALL DAYS
++router.get('/admin/menu/days', async (req, res) => {
++  try {
++    const days = await prisma.menuDay.findMany({
++      include: { items: true },
++      orderBy: { date: 'asc' },
++    });
++
++    res.json(days);
++  } catch (error) {
++    console.error(error);
++    res.status(500).json({ message: 'Failed to fetch menu days' });
++  }
+ });
+ 
+-router.post('/admin/menu/days', (req, res) => {
++// CREATE DAY
++router.post('/admin/menu/days', async (req, res) => {
+   try {
+-    const { date } = req.body || {};
++    const { date } = req.body;
+ 
+     if (!date) {
+       return res.status(400).json({ message: 'Date is required' });
+     }
+ 
+-    const existingDay = menuDays.find((day) => day.date === date);
+-    if (existingDay) {
+-      return res.status(400).json({ message: 'This menu day already exists' });
+-    }
+-
+-    const newDay = {
+-      id: getNextDayId(),
+-      date,
+-      items: [],
+-    };
+-
+-    menuDays.push(newDay);
++    const newDay = await prisma.menuDay.create({
++      data: {
++        date: new Date(date),
++        orderDeadline: new Date(date),
++      },
++    });
+ 
+-    return res.status(201).json(newDay);
++    res.status(201).json(newDay);
+   } catch (error) {
+-    console.error('Create day error:', error);
+-    return res.status(500).json({ message: 'Failed to create menu day' });
++    console.error(error);
++    res.status(500).json({ message: 'Failed to create menu day' });
+   }
+ });
+ 
+-router.delete('/admin/menu/days/:id', (req, res) => {
++// DELETE DAY
++router.delete('/admin/menu/days/:id', async (req, res) => {
+   try {
+-    const id = Number(req.params.id);
+-
+-    const index = menuDays.findIndex((day) => Number(day.id) === id);
+-
+-    if (index === -1) {
+-      return res.status(404).json({ message: 'Menu day not found' });
+-    }
+-
+-    menuDays.splice(index, 1);
++    await prisma.menuDay.delete({
++      where: { id: req.params.id },
++    });
+ 
+-    return res.json({ message: 'Menu day deleted successfully' });
++    res.json({ message: 'Menu day deleted' });
+   } catch (error) {
+-    console.error('Delete day error:', error);
+-    return res.status(500).json({ message: 'Failed to delete menu day' });
++    console.error(error);
++    res.status(500).json({ message: 'Delete failed' });
+   }
+ });
+ 
+ // ===================== MENU ITEMS =====================
+ 
+-router.post('/admin/menu/items', (req, res) => {
++// CREATE ITEM
++router.post('/admin/menu/items', async (req, res) => {
+   try {
+-    const { dayId, name, price, quantity, type } = req.body || {};
++    const { dayId, name, price, quantity, type } = req.body;
+ 
+     if (!dayId || !name || price === undefined || quantity === undefined) {
+-      return res.status(400).json({
+-        message: 'dayId, name, price and quantity are required',
+-      });
+-    }
+-
+-    const targetDay = menuDays.find((day) => Number(day.id) === Number(dayId));
+-
+-    if (!targetDay) {
+-      return res.status(404).json({ message: 'Menu day not found' });
++      return res.status(400).json({ message: 'Missing fields' });
+     }
+ 
+-    const newItem = {
+-      id: getNextItemId(),
+-      name,
+-      price: Number(price),
+-      quantity: Number(quantity),
+-      type: type || 'meal',
+-    };
+-
+-    targetDay.items.push(newItem);
+-
+-    return res.status(201).json({
+-      message: 'Menu item created successfully',
+-      item: newItem,
+-      day: targetDay,
++    const item = await prisma.menuItem.create({
++      data: {
++        menuDayId: dayId,
++        name,
++        price: Number(price),
++        plannedQuantity: Number(quantity),
++        type: type || 'meal',
++      },
+     });
++
++    res.status(201).json(item);
+   } catch (error) {
+-    console.error('Create item error:', error);
+-    return res.status(500).json({ message: 'Failed to create menu item' });
++    console.error(error);
++    res.status(500).json({ message: 'Create item failed' });
+   }
+ });
+ 
+-router.delete('/admin/menu/items/:dayId/:itemId', (req, res) => {
++// DELETE ITEM
++router.delete('/admin/menu/items/:id', async (req, res) => {
+   try {
+-    const dayId = Number(req.params.dayId);
+-    const itemId = Number(req.params.itemId);
+-
+-    const targetDay = menuDays.find((day) => Number(day.id) === dayId);
+-
+-    if (!targetDay) {
+-      return res.status(404).json({ message: 'Menu day not found' });
+-    }
+-
+-    const itemIndex = (targetDay.items || []).findIndex(
+-      (item) => Number(item.id) === itemId
+-    );
+-
+-    if (itemIndex === -1) {
+-      return res.status(404).json({ message: 'Menu item not found' });
+-    }
+-
+-    targetDay.items.splice(itemIndex, 1);
++    await prisma.menuItem.delete({
++      where: { id: req.params.id },
++    });
+ 
+-    return res.json({ message: 'Menu item deleted successfully' });
++    res.json({ message: 'Item deleted' });
+   } catch (error) {
+-    console.error('Delete item error:', error);
+-    return res.status(500).json({ message: 'Failed to delete menu item' });
++    console.error(error);
++    res.status(500).json({ message: 'Delete item failed' });
+   }
+ });
+ 
+ // ===================== ORDERS =====================
+ 
+-router.get('/admin/orders', (req, res) => {
++// GET ALL ORDERS
++router.get('/admin/orders', async (req, res) => {
+   try {
+-    res.json(orders);
+-  } catch (error) {
+-    console.error('Get orders error:', error);
+-    return res.status(500).json({ message: 'Failed to fetch orders' });
+-  }
+-});
++    const orders = await prisma.order.findMany({
++      include: {
++        user: true,
++        menuDay: true,
++        items: {
++          include: {
++            menuItem: true,
++          },
++        },
++      },
++      orderBy: { createdAt: 'desc' },
++    });
+ 
+-router.post('/admin/orders', (req, res) => {
+-  try {
+-    const { customerName, telegramId, items } = req.body || {};
+-
+-    const safeItems = Array.isArray(items) ? items : [];
+-
+-    const normalizedItems = safeItems.map((item, index) => ({
+-      id: item.id || index + 1,
+-      quantity: Number(item.quantity || 0),
+-      name: item.name || item?.menuItem?.name || '',
+-      price: Number(item.price || item?.menuItem?.price || 0),
+-      type: item.type || item?.menuItem?.type || 'meal',
+-      menuItem: item.menuItem
+-        ? {
+-            ...item.menuItem,
+-            type: item.menuItem.type || item.type || 'meal',
+-          }
+-        : undefined,
+-    }));
+-
+-    const totalAmount = normalizedItems.reduce((sum, item) => {
+-      return sum + Number(item.price || 0) * Number(item.quantity || 0);
+-    }, 0);
+-
+-    const newOrder = {
+-      id: getNextOrderId(),
+-      createdAt: new Date().toISOString(),
+-      customerName: customerName || '',
+-      telegramId: telegramId || '',
+-      items: normalizedItems,
+-      totalAmount,
+-    };
+-
+-    orders.unshift(newOrder);
+-
+-    return res.status(201).json(newOrder);
++    res.json(orders);
+   } catch (error) {
+-    console.error('Create order error:', error);
+-    return res.status(500).json({ message: 'Failed to create order' });
++    console.error(error);
++    res.status(500).json({ message: 'Failed to fetch orders' });
+   }
+ });
+ 
+-router.put('/admin/orders/:id', (req, res) => {
++// CREATE ORDER (ADMIN SIDE)
++router.post('/admin/orders', async (req, res) => {
+   try {
+-    const id = Number(req.params.id);
+-    const orderIndex = orders.findIndex((order) => Number(order.id) === id);
++    const { userId, menuDayId, items } = req.body;
+ 
+-    if (orderIndex === -1) {
+-      return res.status(404).json({ message: 'Order not found' });
++    if (!userId || !menuDayId || !Array.isArray(items)) {
++      return res.status(400).json({ message: 'Invalid data' });
+     }
+ 
+-    const currentOrder = orders[orderIndex];
+-    const { customerName, telegramId, items } = req.body || {};
+-
+-    const safeItems = Array.isArray(items) ? items : currentOrder.items || [];
+-
+-    const normalizedItems = safeItems.map((item, index) => ({
+-      id: item.id || index + 1,
+-      quantity: Number(item.quantity || 0),
+-      name: item.name || item?.menuItem?.name || '',
+-      price: Number(item.price || item?.menuItem?.price || 0),
+-      type: item.type || item?.menuItem?.type || 'meal',
+-      menuItem: item.menuItem
+-        ? {
+-            ...item.menuItem,
+-            type: item.menuItem.type || item.type || 'meal',
+-          }
+-        : undefined,
+-    }));
+-
+-    const totalAmount = normalizedItems.reduce((sum, item) => {
+-      return sum + Number(item.price || 0) * Number(item.quantity || 0);
+-    }, 0);
+-
+-    orders[orderIndex] = {
+-      ...currentOrder,
+-      customerName: customerName ?? currentOrder.customerName,
+-      telegramId: telegramId ?? currentOrder.telegramId,
+-      items: normalizedItems,
+-      totalAmount,
+-    };
+-
+-    return res.json(orders[orderIndex]);
++    let total = 0;
++
++    const orderItemsData = items.map((i) => {
++      const subtotal = Number(i.price) * Number(i.quantity);
++      total += subtotal;
++
++      return {
++        menuItemId: i.menuItemId,
++        quantity: i.quantity,
++        priceAtOrderTime: i.price,
++        subtotal,
++      };
++    });
++
++    const order = await prisma.order.create({
++      data: {
++        userId,
++        menuDayId,
++        totalAmount: total,
++        items: {
++          create: orderItemsData,
++        },
++      },
++      include: { items: true },
++    });
++
++    res.status(201).json(order);
+   } catch (error) {
+-    console.error('Update order error:', error);
+-    return res.status(500).json({ message: 'Failed to update order' });
++    console.error(error);
++    res.status(500).json({ message: 'Create order failed' });
+   }
+ });
+ 
+-router.delete('/admin/orders/:id', (req, res) => {
++// DELETE ORDER
++router.delete('/admin/orders/:id', async (req, res) => {
+   try {
+-    const id = Number(req.params.id);
+-
+-    const index = orders.findIndex((order) => Number(order.id) === id);
+-
+-    if (index === -1) {
+-      return res.status(404).json({ message: 'Order not found' });
+-    }
+-
+-    orders.splice(index, 1);
++    await prisma.order.delete({
++      where: { id: req.params.id },
++    });
+ 
+-    return res.json({ message: 'Order deleted successfully' });
++    res.json({ message: 'Order deleted' });
+   } catch (error) {
+-    console.error('Delete order error:', error);
+-    return res.status(500).json({ message: 'Failed to delete order' });
++    console.error(error);
++    res.status(500).json({ message: 'Delete order failed' });
+   }
+ });
+ 
+-export default router;
++export default router;
+\ No newline at end of file
+diff --git a/meal-preorder-app/frontend/src/api/client.js b/meal-preorder-app/frontend/src/api/client.js
+index 2b18363..6172c68 100644
+--- a/meal-preorder-app/frontend/src/api/client.js
++++ b/meal-preorder-app/frontend/src/api/client.js
+@@ -1,12 +1,12 @@
+ import axios from 'axios';
+ 
+ const api = axios.create({
+-  baseURL: 'https://meal-order-app-n8ec.onrender.com/api',
++  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+ });
+ 
+ api.interceptors.request.use((config) => {
+-  let telegramUserId = '123456789';
+-  let telegramUserName = 'Demo User';
++  let telegramUserId = import.meta.env.VITE_DEV_USER_ID || '123456789';
++  let telegramUserName = import.meta.env.VITE_DEV_USER_NAME || 'Demo Customer';
+ 
+   if (window.Telegram && window.Telegram.WebApp) {
+     const tgUser = window.Telegram.WebApp.initDataUnsafe?.user;
+@@ -14,7 +14,7 @@ api.interceptors.request.use((config) => {
+     if (tgUser) {
+       telegramUserId = tgUser.id;
+       telegramUserName =
+-        tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
++        tgUser.first_name + (tgUser.last_name ? ` ${tgUser.last_name}` : '');
+     }
+   }
+ 
+diff --git a/meal-preorder-app/frontend/src/pages/AdminDashboardPage.jsx b/meal-preorder-app/frontend/src/pages/AdminDashboardPage.jsx
+index ab50810..62bcbbb 100644
+--- a/meal-preorder-app/frontend/src/pages/AdminDashboardPage.jsx
++++ b/meal-preorder-app/frontend/src/pages/AdminDashboardPage.jsx
+@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
+     try {
+       await axios.post(`${API}/admin/menu/items`, {
+         ...itemForm,
+-        dayId: Number(itemForm.dayId),
++        dayId: itemForm.dayId,
+         price: Number(itemForm.price),
+         quantity: Number(itemForm.quantity),
+       });
+@@ -110,7 +110,7 @@ export default function AdminDashboardPage() {
+ 
+   const deleteItem = async (dayId, itemId) => {
+     try {
+-      await axios.delete(`${API}/admin/menu/items/${dayId}/${itemId}`);
++      await axios.delete(`${API}/admin/menu/items/${itemId}`);
+       await fetchData();
+     } catch (error) {
+       console.error('DELETE ITEM ERROR:', error?.response?.data || error.message);
+@@ -366,7 +366,9 @@ export default function AdminDashboardPage() {
+                         </div>
+ 
+                         <div style={styles.itemActions}>
+-                          <span>{item.price}</span>
++                          <span>
++                            {item.price} so'm | Planned: {item.plannedQuantity ?? item.quantity ?? 0} | Ordered: {item.orderedQuantity ?? 0} | Available: {Math.max(0, Number(item.plannedQuantity ?? item.quantity ?? 0) - Number(item.orderedQuantity ?? 0))}
++                          </span>
+                           <button
+                             onClick={() => deleteItem(day.id, item.id)}
+                             style={styles.smallDangerButton}
+@@ -416,18 +418,20 @@ export default function AdminDashboardPage() {
+                 </div>
+ 
+                 <div style={styles.orderItems}>
+-                  {(order.items || []).map((item) => (
+-                    <div key={item.id} style={styles.orderItemRow}>
+-                      <span>
+-                        {item.name || item?.menuItem?.name || ''}
+-                        {' '}
+-                        <span style={styles.typeBadge}>
+-                          ({item.type || item?.menuItem?.type || 'meal'})
++                  {(order.items || []).map((item) => {
++                    const name = item?.menuItem?.name || item.name || 'Unknown item';
++                    const type = item?.menuItem?.type || item.type || 'meal';
++                    const qty = item.quantity || 0;
++
++                    return (
++                      <div key={item.id} style={styles.orderItemRow}>
++                        <span>
++                          {name} <span style={styles.typeBadge}>({type})</span>
+                         </span>
+-                      </span>
+-                      <span>x{item.quantity}</span>
+-                    </div>
+-                  ))}
++                        <span>x{qty}</span>
++                      </div>
++                    );
++                  })}
+                 </div>
+ 
+                 <div style={styles.orderMetaRow}>
+diff --git a/meal-preorder-app/frontend/src/pages/CartPage.jsx b/meal-preorder-app/frontend/src/pages/CartPage.jsx
+index 8fe2e2a..dbdd7a5 100644
+--- a/meal-preorder-app/frontend/src/pages/CartPage.jsx
++++ b/meal-preorder-app/frontend/src/pages/CartPage.jsx
+@@ -54,13 +54,14 @@ const labels = {
+ 
+ function normalizeCart(raw) {
+   if (!Array.isArray(raw)) return [];
++
+   return raw
+     .map((item) => ({
+       ...item,
+       qty: Math.max(1, Number(item?.qty) || 1),
+       price: Number(item?.price) || 0,
+-      menuItemId: Number(item?.menuItemId || item?.id || 0),
+-      menuDayId: Number(item?.menuDayId || 0),
++      menuItemId: String(item?.menuItemId || item?.id || ''),
++      menuDayId: String(item?.menuDayId || ''),
+     }))
+     .filter((item) => item.menuItemId && item.menuDayId);
+ }
+@@ -128,11 +129,11 @@ export default function CartPage() {
+   async function placeOrder() {
+     if (!cart.length || submitting) return;
+ 
+-    const firstDayId = Number(cart[0]?.menuDayId || 0);
++    const firstDayId = String(cart[0]?.menuDayId || '');
+     const sameDay = cart.every(
+       (item) =>
+-        Number(item.menuDayId || 0) === firstDayId &&
+-        Number(item.menuItemId || 0) > 0 &&
++        String(item.menuDayId || '') === firstDayId &&
++        String(item.menuItemId || '') &&
+         Number(item.qty || 0) > 0
+     );
+ 
+@@ -148,7 +149,7 @@ export default function CartPage() {
+       const payload = {
+         menuDayId: firstDayId,
+         items: cart.map((item) => ({
+-          itemId: Number(item.menuItemId),
++          itemId: item.menuItemId,
+           quantity: Number(item.qty),
+         })),
+       };
+@@ -292,18 +293,18 @@ const styles = {
+   heading: {
+     fontSize: '28px',
+     fontWeight: 800,
+-    color: '#0f5a65',
++    color: '#ffffff',
+     marginBottom: '4px',
+   },
+   subheading: {
+     fontSize: '14px',
+-    color: '#2e7881',
++    color: '#bfefff',
+     fontWeight: 600,
+   },
+   backLink: {
+     textDecoration: 'none',
+     background: 'rgba(255,255,255,0.55)',
+-    color: '#0f5a65',
++    color: '#ffffff',
+     fontWeight: 700,
+     padding: '10px 14px',
+     borderRadius: '999px',
+@@ -325,7 +326,7 @@ const styles = {
+     paddingRight: '2px',
+   },
+   card: {
+-    background: '#ffffff',
++    background: 'rgba(255,255,255,0.92)',
+     borderRadius: '22px',
+     padding: '14px',
+     display: 'flex',
+@@ -343,7 +344,7 @@ const styles = {
+     width: '54px',
+     height: '54px',
+     borderRadius: '16px',
+-    background: '#eefbfd',
++    background: 'rgba(255,255,255,0.12)',
+     display: 'flex',
+     alignItems: 'center',
+     justifyContent: 'center',
+@@ -372,7 +373,7 @@ const styles = {
+     gap: '10px',
+   },
+   counter: {
+-    background: '#eefbfd',
++    background: 'rgba(255,255,255,0.12)',
+     borderRadius: '999px',
+     padding: '6px 8px',
+     display: 'flex',
+diff --git a/meal-preorder-app/frontend/src/pages/OrdersPage.jsx b/meal-preorder-app/frontend/src/pages/OrdersPage.jsx
+index bc33c8b..f641f47 100644
+--- a/meal-preorder-app/frontend/src/pages/OrdersPage.jsx
++++ b/meal-preorder-app/frontend/src/pages/OrdersPage.jsx
+@@ -226,18 +226,18 @@ const styles = {
+   heading: {
+     fontSize: '28px',
+     fontWeight: 800,
+-    color: '#0f5a65',
++    color: '#ffffff',
+     marginBottom: '4px',
+   },
+   subheading: {
+     fontSize: '14px',
+-    color: '#2e7881',
++    color: '#bfefff',
+     fontWeight: 600,
+   },
+   backLink: {
+     textDecoration: 'none',
+     background: 'rgba(255,255,255,0.55)',
+-    color: '#0f5a65',
++    color: '#ffffff',
+     fontWeight: 700,
+     padding: '10px 14px',
+     borderRadius: '999px',
+@@ -310,7 +310,7 @@ const styles = {
+     display: 'flex',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+-    background: '#eefbfd',
++    background: 'rgba(255,255,255,0.12)',
+     padding: '12px 14px',
+     borderRadius: '16px',
+     color: '#105760',

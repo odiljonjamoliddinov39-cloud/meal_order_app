@@ -53,6 +53,7 @@ model MenuItem {
   price           Decimal     @db.Decimal(10, 2)
   plannedQuantity Int
   orderedQuantity Int         @default(0)
+  type            String      @default("meal")
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
