@@ -24,7 +24,7 @@ export function getApiBaseURL() {
     }
   }
 
-  return 'https://meal-order-api.onrender.com/api';
+  return 'https://mealorderbackend-production.up.railway.app/api';
 }
 
 const api = axios.create({
