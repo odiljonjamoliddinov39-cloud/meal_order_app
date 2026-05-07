@@ -21,7 +21,7 @@ app.use('/api', customerRoutes);
 app.use('/api', adminRoutes);
 
 const PORT = process.env.PORT || 4000;
-const HOST = '0.0.0.0';
+const HOST = '::';
 
 app.listen(PORT, HOST, () => {
   console.log(`Server running on ${HOST}:${PORT}`);
