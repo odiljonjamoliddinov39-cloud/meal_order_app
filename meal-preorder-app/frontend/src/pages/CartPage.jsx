@@ -74,7 +74,11 @@ function readCart() {
 }
 
 function writeCart(cart) {
-  localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart));
+  try {
+    localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart));
+  } catch {
+    // Some Telegram WebViews block storage; keep in-memory cart state working.
+  }
 }
 
 function formatPrice(value) {

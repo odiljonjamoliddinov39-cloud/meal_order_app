@@ -125,20 +125,26 @@ export const createOrder = async (req, res) => {
         },
       });
 
-      const normalized = [];
+      const requestedItems = new Map();
 
       for (const rawItem of safeItems) {
         const itemId = String(rawItem.itemId || rawItem.id || '');
-        const quantity = Number(rawItem.quantity || 0);
+        const quantity = Math.trunc(Number(rawItem.quantity || 0));
 
         if (!itemId || quantity <= 0) continue;
 
+        requestedItems.set(itemId, (requestedItems.get(itemId) || 0) + quantity);
+      }
+
+      const normalized = [];
+
+      for (const [itemId, quantity] of requestedItems.entries()) {
         const menuItem = await tx.menuItem.findUnique({
           where: { id: itemId },
           include: { menuDay: true },
         });
 
-        if (!menuItem || !menuItem.isActive) continue;
+        if (!menuItem || !menuItem.isActive || !menuItem.menuDay?.isOpen) continue;
 
         const available =
           Number(menuItem.plannedQuantity || 0) - Number(menuItem.orderedQuantity || 0);
@@ -168,6 +174,32 @@ export const createOrder = async (req, res) => {
 
       const totalAmount = normalized.reduce((sum, item) => sum + item.subtotal, 0);
 
+      for (const item of normalized) {
+        const reserved = await tx.menuItem.updateMany({
+          where: {
+            id: item.menuItem.id,
+            isActive: true,
+            orderedQuantity: {
+              lte: Number(item.menuItem.plannedQuantity || 0) - item.quantity,
+            },
+            menuDay: {
+              is: {
+                isOpen: true,
+              },
+            },
+          },
+          data: {
+            orderedQuantity: {
+              increment: item.quantity,
+            },
+          },
+        });
+
+        if (reserved.count !== 1) {
+          throw new Error(`Not enough quantity for ${item.menuItem.name}`);
+        }
+      }
+
       const order = await tx.order.create({
         data: {
           userId: user.id,
@@ -190,17 +222,6 @@ export const createOrder = async (req, res) => {
           },
         },
       });
-
-      for (const item of normalized) {
-        await tx.menuItem.update({
-          where: { id: item.menuItem.id },
-          data: {
-            orderedQuantity: {
-              increment: item.quantity,
-            },
-          },
-        });
-      }
 
       return order;
     });

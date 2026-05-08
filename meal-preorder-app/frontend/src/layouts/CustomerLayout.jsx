@@ -72,7 +72,11 @@ function readLanguage() {
 }
 
 function writeLanguage(lang) {
-  localStorage.setItem(STORAGE_LANG_KEY, lang);
+  try {
+    localStorage.setItem(STORAGE_LANG_KEY, lang);
+  } catch {
+    // Telegram WebViews can deny storage on some older devices.
+  }
 }
 
 export default function CustomerLayout() {

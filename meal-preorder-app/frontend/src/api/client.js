@@ -1,14 +1,14 @@
 import axios from 'axios';
 
 export function getApiBaseURL() {
-  const configured = import.meta.env.VITE_API_URL?.trim();
+  const configured = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.trim() : '';
 
   if (typeof window !== 'undefined') {
     const { protocol, host } = window.location;
     const isLocalHost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const isCodespacesHost = host.endsWith('.app.github.dev');
     const pointsToLocalhost =
-      configured?.includes('localhost') || configured?.includes('127.0.0.1');
+      configured.includes('localhost') || configured.includes('127.0.0.1');
 
     if (isCodespacesHost && (!configured || pointsToLocalhost)) {
       const apiHost = host.replace(/-\d+\.app\.github\.dev$/, '-4000.app.github.dev');
@@ -35,8 +35,11 @@ api.interceptors.request.use((config) => {
   let telegramUserId = import.meta.env.VITE_DEV_USER_ID || '123456789';
   let telegramUserName = import.meta.env.VITE_DEV_USER_NAME || 'Demo User';
 
-  if (window.Telegram && window.Telegram.WebApp) {
-    const tgUser = window.Telegram.WebApp.initDataUnsafe?.user;
+  const telegramWebApp =
+    typeof window !== 'undefined' && window.Telegram ? window.Telegram.WebApp : null;
+
+  if (telegramWebApp) {
+    const tgUser = telegramWebApp.initDataUnsafe && telegramWebApp.initDataUnsafe.user;
 
     if (tgUser) {
       telegramUserId = tgUser.id;

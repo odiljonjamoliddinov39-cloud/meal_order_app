@@ -16,7 +16,9 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@vitejs/plugin-legacy": "^6.1.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "terser": "^5.47.1",
     "vite": "^6.2.2"
   }
 }

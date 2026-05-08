@@ -74,8 +74,11 @@ function normalizeCart(raw) {
       ...item,
       qty: Math.max(1, Number(item?.qty) || 1),
       price: Number(item?.price) || 0,
+      id: String(item?.id || item?.menuItemId || ''),
+      menuItemId: String(item?.menuItemId || item?.id || ''),
+      menuDayId: String(item?.menuDayId || ''),
     }))
-    .filter((item) => item?.menuItemId && item?.menuDayId);
+    .filter((item) => item.menuItemId && item.menuDayId);
 }
 
 function readCart() {
@@ -87,7 +90,11 @@ function readCart() {
 }
 
 function writeCart(cart) {
-  localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart));
+  try {
+    localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart));
+  } catch {
+    // Some Telegram WebViews block storage; keep in-memory cart state working.
+  }
 }
 
 function formatPrice(value) {
@@ -155,9 +162,9 @@ function normalizeItem(item, selectedDate, menuDayId) {
   if (!item) return null;
 
   return {
-    id: item.id,
-    menuItemId: item.menuItemId || item.id,
-    menuDayId: item.menuDayId || menuDayId,
+    id: String(item.id || ''),
+    menuItemId: String(item.menuItemId || item.id || ''),
+    menuDayId: String(item.menuDayId || menuDayId || ''),
     name: item.name || 'Unnamed item',
     description: item.description || '',
     price: Number(item.price || 0),
@@ -169,6 +176,10 @@ function normalizeItem(item, selectedDate, menuDayId) {
     date: item.date || selectedDate,
     type: item.type || 'meal',
   };
+}
+
+function getItemKey(item) {
+  return String(item?.menuItemId || item?.id || '');
 }
 
 
@@ -330,21 +341,31 @@ export default function HomePage() {
   }
 
   function getQty(id) {
-    return currentCart.find((item) => Number(item.id) === Number(id))?.qty || 0;
+    const itemId = String(id || '');
+    return currentCart.find((item) => getItemKey(item) === itemId)?.qty || 0;
   }
 
   function changeQty(item, diff) {
     if (!menuDayId) return;
 
+    const itemId = getItemKey(item);
+    if (!itemId) return;
+
     const raw = readCart().filter((x) => String(x.menuDayId) === String(menuDayId));
-    const existing = raw.find((x) => Number(x.id) === Number(item.id));
+    const existing = raw.find((x) => getItemKey(x) === itemId);
     let next = raw;
 
     if (existing) {
       next = raw
         .map((x) =>
-          Number(x.id) === Number(item.id)
-            ? { ...x, qty: Math.max(0, Number(x.qty) + diff) }
+          getItemKey(x) === itemId
+            ? {
+                ...x,
+                qty: Math.min(
+                  Number(item.availableQuantity || 0),
+                  Math.max(0, Number(x.qty) + diff)
+                ),
+              }
             : x
         )
         .filter((x) => x.qty > 0);
@@ -352,8 +373,8 @@ export default function HomePage() {
       next = [
         ...raw,
         {
-          id: item.id,
-          menuItemId: item.id,
+          id: itemId,
+          menuItemId: itemId,
           menuDayId,
           date: selectedDate,
           name: item.name,

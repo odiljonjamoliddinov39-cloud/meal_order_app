@@ -1,8 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import legacy from '@vitejs/plugin-legacy';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    legacy({
+      targets: ['defaults', 'Android >= 6', 'Chrome >= 61', 'iOS >= 12'],
+      modernPolyfills: true,
+    }),
+  ],
   server: {
     proxy: {
       '/api': {
