@@ -13,6 +13,7 @@ const labels = {
     emptyOrder: 'Choose items from the menu',
     loading: 'Loading menu...',
     failed: 'Failed to load menu',
+    authRequired: 'Open this menu from Telegram to load your account',
     noDays: 'No menu day found',
     noItems: 'No active items for this day',
     meal: 'Meal',
@@ -33,6 +34,7 @@ const labels = {
     emptyOrder: 'Выберите позиции из меню',
     loading: 'Загрузка меню...',
     failed: 'Не удалось загрузить меню',
+    authRequired: 'Откройте меню из Telegram, чтобы загрузить аккаунт',
     noDays: 'Дни меню не найдены',
     noItems: 'Нет активных блюд на этот день',
     meal: 'Еда',
@@ -53,6 +55,7 @@ const labels = {
     emptyOrder: 'Menyudan mahsulot tanlang',
     loading: 'Menyu yuklanmoqda...',
     failed: 'Menyuni yuklab bo‘lmadi',
+    authRequired: 'Akkauntingizni yuklash uchun menyuni Telegram orqali oching',
     noDays: 'Menyu kuni topilmadi',
     noItems: 'Bu kunda faol mahsulot yo‘q',
     meal: 'Ovqat',
@@ -240,7 +243,7 @@ export default function HomePage() {
       } catch (err) {
         if (!mounted) return;
         console.error('LOAD DAYS ERROR:', err?.response?.data || err.message);
-        setError(l.failed);
+        setError(err?.response?.status === 401 ? l.authRequired : l.failed);
       } finally {
         if (mounted) setLoadingDays(false);
       }
@@ -251,7 +254,7 @@ export default function HomePage() {
     return () => {
       mounted = false;
     };
-  }, [l.failed]);
+  }, [l.failed, l.authRequired]);
 
   useEffect(() => {
     let mounted = true;
@@ -267,16 +270,13 @@ export default function HomePage() {
         if (!mounted) return;
 
         const raw = res.data;
+        const matchedDay = days.find((day) => day.date === selectedDate);
 
-        let resolvedMenuDayId = menuDayId;
+        let resolvedMenuDayId = matchedDay?.id || '';
         let rawItems = [];
 
         if (Array.isArray(raw)) {
           rawItems = raw;
-          if (!resolvedMenuDayId) {
-            const matchedDay = days.find((day) => day.date === selectedDate);
-            resolvedMenuDayId = matchedDay?.id || '';
-          }
         } else {
           resolvedMenuDayId = raw?.id || '';
           rawItems = Array.isArray(raw?.items) ? raw.items : [];
@@ -292,22 +292,24 @@ export default function HomePage() {
         setItems(activeItems);
         window.debugItems = activeItems;
 
-        const hasMeal = activeItems.some((item) => detectCategory(item) === 'meal');
-        const hasCurrent = activeItems.some((item) => detectCategory(item) === activeCategory);
-
-        if (!hasCurrent) {
-          setActiveCategory(
-            hasMeal
-              ? 'meal'
-              : categories.find((cat) =>
-                  activeItems.some((item) => detectCategory(item) === cat.key)
-                )?.key || 'meal'
+        setActiveCategory((currentCategory) => {
+          const hasCurrent = activeItems.some(
+            (item) => detectCategory(item) === currentCategory
           );
-        }
+          if (hasCurrent) return currentCategory;
+
+          if (activeItems.some((item) => detectCategory(item) === 'meal')) return 'meal';
+
+          return (
+            ['coffee', 'drinks', 'dessert'].find((category) =>
+              activeItems.some((item) => detectCategory(item) === category)
+            ) || 'meal'
+          );
+        });
       } catch (err) {
         if (!mounted) return;
         console.error('LOAD ITEMS ERROR:', err?.response?.data || err.message);
-        setError(l.failed);
+        setError(err?.response?.status === 401 ? l.authRequired : l.failed);
         setItems([]);
       } finally {
         if (mounted) setLoadingItems(false);
@@ -319,7 +321,7 @@ export default function HomePage() {
     return () => {
       mounted = false;
     };
-  }, [selectedDate, l.failed, activeCategory, categories, days, menuDayId]);
+  }, [selectedDate, l.failed, l.authRequired, days]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => detectCategory(item) === activeCategory);

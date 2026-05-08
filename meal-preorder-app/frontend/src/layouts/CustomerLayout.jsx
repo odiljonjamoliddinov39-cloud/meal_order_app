@@ -1,5 +1,11 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  getTelegramDisplayName,
+  getTelegramUser,
+  initTelegramWebApp,
+  waitForTelegramUser,
+} from '../api/telegramAuth.js';
 
 const STORAGE_LANG_KEY = 'meal_app_lang_v2';
 const DEFAULT_LANGUAGE = 'RUS';
@@ -58,11 +64,6 @@ const translations = {
   },
 };
 
-function getTelegramUser() {
-  if (typeof window === 'undefined') return null;
-  return window.Telegram?.WebApp?.initDataUnsafe?.user || null;
-}
-
 function readLanguage() {
   try {
     return localStorage.getItem(STORAGE_LANG_KEY) || DEFAULT_LANGUAGE;
@@ -86,15 +87,22 @@ export default function CustomerLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [user, setUser] = useState(() => getTelegramUser());
 
-  const user = useMemo(() => getTelegramUser(), []);
   const t = translations[language] || translations[DEFAULT_LANGUAGE];
 
   useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
-    }
+    let mounted = true;
+
+    initTelegramWebApp();
+
+    waitForTelegramUser().then((telegramUser) => {
+      if (mounted && telegramUser) setUser(telegramUser);
+    });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -208,7 +216,7 @@ export default function CustomerLayout() {
                   <div>
                     <span>{t.telegramName}</span>
                     <strong>
-                      {[user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'Demo'}
+                      {getTelegramDisplayName(user) || '-'}
                     </strong>
                   </div>
 
@@ -221,7 +229,7 @@ export default function CustomerLayout() {
 
                   <div>
                     <span>{t.telegramId}</span>
-                    <strong>{user?.id || '123456'}</strong>
+                    <strong>{user?.id || '-'}</strong>
                   </div>
                 </div>
               </div>

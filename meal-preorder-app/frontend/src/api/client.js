@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getRequestTelegramUser, getTelegramHeaders } from './telegramAuth.js';
 
 export function getApiBaseURL() {
   const configured = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.trim() : '';
@@ -31,26 +32,16 @@ const api = axios.create({
   baseURL: getApiBaseURL(),
 });
 
-api.interceptors.request.use((config) => {
-  let telegramUserId = import.meta.env.VITE_DEV_USER_ID || '123456789';
-  let telegramUserName = import.meta.env.VITE_DEV_USER_NAME || 'Demo User';
-
-  const telegramWebApp =
-    typeof window !== 'undefined' && window.Telegram ? window.Telegram.WebApp : null;
-
-  if (telegramWebApp) {
-    const tgUser = telegramWebApp.initDataUnsafe && telegramWebApp.initDataUnsafe.user;
-
-    if (tgUser) {
-      telegramUserId = tgUser.id;
-      telegramUserName =
-        tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
-    }
-  }
+api.interceptors.request.use(async (config) => {
+  const requestUrl = String(config.url || '');
+  const isAdminRequest = requestUrl.startsWith('/admin');
 
   config.headers = config.headers || {};
-  config.headers['x-telegram-user-id'] = String(telegramUserId);
-  config.headers['x-telegram-user-name'] = String(telegramUserName);
+
+  if (!isAdminRequest) {
+    const telegramUser = await getRequestTelegramUser();
+    Object.assign(config.headers, getTelegramHeaders(telegramUser));
+  }
 
   return config;
 });

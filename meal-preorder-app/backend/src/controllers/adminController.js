@@ -1,5 +1,12 @@
 import { prisma } from '../lib/prisma.js';
 
+const getUserDisplayName = (user) => {
+  const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+  if (fullName) return fullName;
+  if (user?.username) return `@${user.username}`;
+  return '';
+};
+
 const serializeItem = (item) => ({
   id: item.id,
   name: item.name,
@@ -27,8 +34,9 @@ const serializeOrder = (order) => ({
   status: order.status,
   totalAmount: Number(order.totalAmount || 0),
   createdAt: order.createdAt,
-  customerName: `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim(),
+  customerName: getUserDisplayName(order.user),
   telegramId: order.user?.telegramId || '',
+  username: order.user?.username || '',
   items: (order.items || []).map((item) => ({
     id: item.id,
     quantity: item.quantity,

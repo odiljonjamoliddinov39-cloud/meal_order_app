@@ -17,6 +17,7 @@ const labels = {
     clearCart: 'Clear Cart',
     ordered: 'Order placed successfully',
     failed: 'Failed to place order',
+    authRequired: 'Open this menu from Telegram before placing an order',
     cartMismatch: 'Cart contains mixed or invalid day data. Re-add items from one day.',
     submitting: 'Placing...',
   },
@@ -32,6 +33,7 @@ const labels = {
     clearCart: 'Очистить корзину',
     ordered: 'Заказ успешно создан',
     failed: 'Не удалось создать заказ',
+    authRequired: 'Откройте меню из Telegram перед оформлением заказа',
     cartMismatch: 'В корзине смешаны или неверные данные дня. Добавьте заново товары одного дня.',
     submitting: 'Отправка...',
   },
@@ -47,6 +49,7 @@ const labels = {
     clearCart: 'Savatni tozalash',
     ordered: 'Buyurtma muvaffaqiyatli yaratildi',
     failed: 'Buyurtma yaratilmadi',
+    authRequired: 'Buyurtma berishdan oldin menyuni Telegram orqali oching',
     cartMismatch: 'Savatchada turli kun yoki noto‘g‘ri ma’lumotlar bor. Bitta kun uchun qayta qo‘shing.',
     submitting: 'Yuborilmoqda...',
   },
@@ -167,7 +170,7 @@ export default function CartPage() {
     } catch (error) {
       console.error('PLACE ORDER ERROR:', error?.response?.data || error.message);
       const backendMessage = error?.response?.data?.message;
-      setMessage(backendMessage || l.failed);
+      setMessage(error?.response?.status === 401 ? l.authRequired : backendMessage || l.failed);
     } finally {
       setSubmitting(false);
     }

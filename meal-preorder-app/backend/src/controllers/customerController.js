@@ -1,5 +1,12 @@
 import { prisma } from '../lib/prisma.js';
 
+const getUserDisplayName = (user) => {
+  const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+  if (fullName) return fullName;
+  if (user?.username) return `@${user.username}`;
+  return '';
+};
+
 const serializeItem = (item) => ({
   id: item.id,
   name: item.name,
@@ -17,8 +24,9 @@ const serializeOrder = (order) => ({
   id: order.id,
   totalAmount: Number(order.totalAmount || 0),
   createdAt: order.createdAt,
-  customerName: `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim(),
+  customerName: getUserDisplayName(order.user),
   telegramId: order.user?.telegramId || '',
+  username: order.user?.username || '',
   items: (order.items || []).map((item) => ({
     id: item.id,
     quantity: item.quantity,
@@ -108,6 +116,7 @@ export const createOrder = async (req, res) => {
     const telegramId = String(req.user?.telegramId || '');
     const firstName = req.user?.firstName || '';
     const lastName = req.user?.lastName || '';
+    const username = req.user?.username || '';
 
     if (!telegramId) {
       return res.status(401).json({ message: 'Telegram auth required' });
@@ -116,11 +125,12 @@ export const createOrder = async (req, res) => {
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.upsert({
         where: { telegramId },
-        update: { firstName, lastName },
+        update: { firstName, lastName, username },
         create: {
           telegramId,
           firstName,
           lastName,
+          username,
           role: 'CUSTOMER',
         },
       });

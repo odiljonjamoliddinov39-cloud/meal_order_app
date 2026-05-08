@@ -16,6 +16,7 @@ const labels = {
     statusCancelled: 'Cancelled',
     loading: 'Loading orders...',
     failed: 'Failed to load orders',
+    authRequired: 'Open this page from Telegram to load your orders',
   },
   RUS: {
     title: 'Мои заказы',
@@ -30,6 +31,7 @@ const labels = {
     statusCancelled: 'Отменен',
     loading: 'Загрузка заказов...',
     failed: 'Не удалось загрузить заказы',
+    authRequired: 'Откройте страницу из Telegram, чтобы загрузить заказы',
   },
   UZB: {
     title: 'Mening buyurtmalarim',
@@ -44,6 +46,7 @@ const labels = {
     statusCancelled: 'Bekor qilingan',
     loading: 'Buyurtmalar yuklanmoqda...',
     failed: 'Buyurtmalarni yuklab bo‘lmadi',
+    authRequired: 'Buyurtmalarni yuklash uchun sahifani Telegram orqali oching',
   },
 };
 
@@ -118,7 +121,7 @@ export default function OrdersPage() {
       } catch (error) {
         if (!mounted) return;
         setOrders([]);
-        setErrorMessage(error?.response?.data?.message || l.failed);
+        setErrorMessage(error?.response?.status === 401 ? l.authRequired : error?.response?.data?.message || l.failed);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -131,7 +134,7 @@ export default function OrdersPage() {
     return () => {
       mounted = false;
     };
-  }, [l.failed]);
+  }, [l.failed, l.authRequired]);
 
   useEffect(() => {
     if (!successMessage) return;
