@@ -83,7 +83,7 @@ function formatPrice(value) {
 
 export default function CartPage() {
   const { language } = useOutletContext();
-  const l = labels[language] || labels.ENG;
+  const l = labels[language] || labels.RUS;
 
   const [cart, setCart] = useState([]);
   const [message, setMessage] = useState('');

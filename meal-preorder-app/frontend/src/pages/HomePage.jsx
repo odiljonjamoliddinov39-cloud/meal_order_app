@@ -175,7 +175,7 @@ function normalizeItem(item, selectedDate, menuDayId) {
 
 export default function HomePage() {
   const { language } = useOutletContext();
-  const l = labels[language] || labels.ENG;
+  const l = labels[language] || labels.RUS;
 
   const [days, setDays] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');

@@ -95,7 +95,7 @@ function getStatusStyle(status) {
 
 export default function OrdersPage() {
   const { language } = useOutletContext();
-  const l = labels[language] || labels.ENG;
+  const l = labels[language] || labels.RUS;
   const location = useLocation();
 
   const [orders, setOrders] = useState([]);

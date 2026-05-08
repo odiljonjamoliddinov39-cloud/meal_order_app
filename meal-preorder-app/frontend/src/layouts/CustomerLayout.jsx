@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_LANG_KEY = 'meal_app_lang_v2';
+const DEFAULT_LANGUAGE = 'RUS';
 
 const translations = {
   ENG: {
@@ -64,9 +65,9 @@ function getTelegramUser() {
 
 function readLanguage() {
   try {
-    return localStorage.getItem(STORAGE_LANG_KEY) || 'ENG';
+    return localStorage.getItem(STORAGE_LANG_KEY) || DEFAULT_LANGUAGE;
   } catch {
-    return 'ENG';
+    return DEFAULT_LANGUAGE;
   }
 }
 
@@ -83,7 +84,7 @@ export default function CustomerLayout() {
   const [accountOpen, setAccountOpen] = useState(false);
 
   const user = useMemo(() => getTelegramUser(), []);
-  const t = translations[language] || translations.ENG;
+  const t = translations[language] || translations[DEFAULT_LANGUAGE];
 
   useEffect(() => {
     if (window.Telegram?.WebApp) {
