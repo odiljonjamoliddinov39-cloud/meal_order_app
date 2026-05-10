@@ -1,10 +1,25 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import CustomerLayout from './layouts/CustomerLayout.jsx';
 import AdminLayout from './layouts/AdminLayout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
+
+function RootRedirect() {
+  const location = useLocation();
+
+  return (
+    <Navigate
+      to={{
+        pathname: '/web',
+        search: location.search,
+        hash: location.hash,
+      }}
+      replace
+    />
+  );
+}
 
 export default function App() {
   return (
@@ -19,8 +34,8 @@ export default function App() {
         <Route index element={<AdminDashboardPage />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
       </Route>
-      
-      <Route path="/" element={<Navigate to="/web" replace />} />
+
+      <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<div><h2>Page not found</h2></div>} />
     </Routes>
   );
