@@ -9,8 +9,8 @@ import {
 
 const router = Router();
 
-router.get('/menu/days', requireTelegramAuth, getMenuDays);
-router.get('/menu/items', requireTelegramAuth, getMenuItemsByDate);
+router.get('/menu/days', getMenuDays);
+router.get('/menu/items', getMenuItemsByDate);
 router.post('/orders', requireTelegramAuth, createOrder);
 router.get('/orders/me', requireTelegramAuth, getMyOrders);
 
