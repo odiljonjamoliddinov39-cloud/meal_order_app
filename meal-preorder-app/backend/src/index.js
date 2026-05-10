@@ -13,6 +13,25 @@ app.use(cors({
 
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const durationMs = Date.now() - start;
+    const telegramUserId = req.get('x-telegram-user-id') || 'MISSING';
+    const telegramName = req.get('x-telegram-user-name') ? 'PRESENT' : 'MISSING';
+    const origin = req.get('origin') || '-';
+
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ` +
+        `${res.statusCode} ${durationMs}ms ` +
+        `origin=${origin} tgId=${telegramUserId} tgName=${telegramName}`
+    );
+  });
+
+  next();
+});
+
 app.get('/', (req, res) => {
   res.json({ message: 'Meal order backend is running' });
 });
