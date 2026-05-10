@@ -6,11 +6,16 @@ dotenv.config();
 const token = process.env.BOT_TOKEN;
 
 function normalizeMiniAppUrl(value) {
-  const fallbackUrl = 'http://localhost:5173/web';
+  const productionUrl = 'https://meal-order-app-mauve.vercel.app/web';
+  const fallbackUrl = process.env.NODE_ENV === 'production' ? productionUrl : 'http://localhost:5173/web';
   const rawUrl = (value || fallbackUrl).trim();
 
   try {
     const url = new URL(rawUrl);
+
+    if (url.hostname === 'brunchorder.netlify.app') {
+      return productionUrl;
+    }
 
     if (!url.pathname || url.pathname === '/') {
       url.pathname = '/web';
