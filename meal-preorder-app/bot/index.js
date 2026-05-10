@@ -4,7 +4,25 @@ import TelegramBot from 'node-telegram-bot-api';
 dotenv.config();
 
 const token = process.env.BOT_TOKEN;
-const miniAppUrl = process.env.MINI_APP_URL || 'http://localhost:5173/web';
+
+function normalizeMiniAppUrl(value) {
+  const fallbackUrl = 'http://localhost:5173/web';
+  const rawUrl = (value || fallbackUrl).trim();
+
+  try {
+    const url = new URL(rawUrl);
+
+    if (!url.pathname || url.pathname === '/') {
+      url.pathname = '/web';
+    }
+
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL);
 
 if (!token) {
   throw new Error('BOT_TOKEN is required');
@@ -13,7 +31,7 @@ if (!token) {
 const bot = new TelegramBot(token, { polling: true });
 
 bot.onText(/\/start/, async (msg) => {
-  await bot.sendMessage(msg.chat.id, 'Welcome 👋 Open the meal menu below.', {
+  await bot.sendMessage(msg.chat.id, 'Welcome ðŸ‘‹ Open the meal menu below.', {
     reply_markup: {
       inline_keyboard: [[
         {
