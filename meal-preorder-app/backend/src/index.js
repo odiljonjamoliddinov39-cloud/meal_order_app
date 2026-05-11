@@ -22,7 +22,7 @@ function normalizeMiniAppUrl(value) {
   return url.toString();
 }
 
-const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL || 'https://meal-order-app-mauve.vercel.app/web?v=30');
+const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL || 'https://meal-order-app-mauve.vercel.app/web?v=31');
 const telegramBotToken = process.env.BOT_TOKEN || '';
 const telegramWebhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 
@@ -72,10 +72,11 @@ app.post('/telegram/webhook/:secret', async (req, res) => {
     return res.sendStatus(200);
   }
 
-  const payload = text.startsWith('/start')
-    ? {
+  const payloads = text.startsWith('/start')
+    ? [
+      {
         chat_id: chatId,
-        text: `Welcome. Tap Open Meal App to load today's menu.\n\nIf the button does not appear, update Telegram and reopen this chat.`,
+        text: `Welcome. Tap Open Meal App to load today's menu.`,
         reply_markup: {
           keyboard: [
             [{ text: 'Open Meal App', web_app: { url: miniAppUrl } }],
@@ -83,28 +84,40 @@ app.post('/telegram/webhook/:secret', async (req, res) => {
           resize_keyboard: true,
           is_persistent: true,
         },
-      }
-    : {
+      },
+      {
+        chat_id: chatId,
+        text: `If the Telegram button does not load, open the same menu link here: ${miniAppUrl}`,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Open Direct Link', url: miniAppUrl }],
+          ],
+        },
+      },
+    ]
+    : [{
         chat_id: chatId,
         text: 'Use /start to open the Mini App.',
-      };
+      }];
 
   try {
-    const telegramResponse = await fetch(
-      `https://api.telegram.org/bot${telegramBotToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      }
-    );
+    for (const payload of payloads) {
+      const telegramResponse = await fetch(
+        `https://api.telegram.org/bot${telegramBotToken}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
 
-    if (!telegramResponse.ok) {
-      const body = await telegramResponse.text();
-      console.error('Telegram webhook sendMessage failed:', telegramResponse.status, body);
-    } else {
-      console.log(`Telegram webhook response sent chat=${chatId}`);
+      if (!telegramResponse.ok) {
+        const body = await telegramResponse.text();
+        console.error('Telegram webhook sendMessage failed:', telegramResponse.status, body);
+      }
     }
+
+    console.log(`Telegram webhook response sent chat=${chatId}`);
   } catch (error) {
     console.error('Telegram webhook error:', error?.message || error);
   }
