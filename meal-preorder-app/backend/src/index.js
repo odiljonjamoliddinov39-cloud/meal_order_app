@@ -5,7 +5,24 @@ import customerRoutes from './routes/customerRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 const app = express();
-const miniAppUrl = 'https://meal-order-app-mauve.vercel.app/web';
+
+function normalizeMiniAppUrl(value) {
+  const rawUrl = String(value || '').trim();
+
+  if (!rawUrl) {
+    throw new Error('MINI_APP_URL is required');
+  }
+
+  const url = new URL(rawUrl);
+
+  if (!url.pathname || url.pathname === '/') {
+    url.pathname = '/web';
+  }
+
+  return url.toString();
+}
+
+const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL || 'https://meal-order-app-mauve.vercel.app/web?v=30');
 const telegramBotToken = process.env.BOT_TOKEN || '';
 const telegramWebhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 
