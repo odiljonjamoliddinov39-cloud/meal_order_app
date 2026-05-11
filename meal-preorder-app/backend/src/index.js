@@ -42,9 +42,15 @@ app.get('/', (req, res) => {
 app.use('/api', customerRoutes);
 app.use('/api', adminRoutes);
 
-const PORT = process.env.PORT || 4000;
-const HOST = '::';
+const ports = Array.from(new Set([
+  Number(process.env.PORT || 4000),
+  8080,
+  4000,
+])).filter((port) => Number.isInteger(port) && port > 0);
+const HOST = '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
-  console.log(`Server running on ${HOST}:${PORT}`);
+ports.forEach((port) => {
+  app.listen(port, HOST, () => {
+    console.log(`Server running on ${HOST}:${port}`);
+  });
 });
