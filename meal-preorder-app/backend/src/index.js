@@ -58,14 +58,22 @@ app.post('/telegram/webhook/:secret', async (req, res) => {
   const payload = text.startsWith('/start')
     ? {
         chat_id: chatId,
-        text: 'Welcome. Open the meal menu below.',
+        text: `Welcome. Open the meal menu below.\n\nIf the Mini App button does not open, use this link:\n${miniAppUrl}`,
         reply_markup: {
-          inline_keyboard: [[
-            {
-              text: 'Open Meal App',
-              web_app: { url: miniAppUrl },
-            },
-          ]],
+          inline_keyboard: [
+            [
+              {
+                text: 'Open Meal App',
+                web_app: { url: miniAppUrl },
+              },
+            ],
+            [
+              {
+                text: 'Open Link',
+                url: miniAppUrl,
+              },
+            ],
+          ],
         },
       }
     : {
