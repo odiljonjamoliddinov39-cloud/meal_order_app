@@ -5,7 +5,6 @@ import customerRoutes from './routes/customerRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 const app = express();
-const miniAppUrl = 'https://meal-order-app-mauve.vercel.app/web';
 
 app.use(cors({
   origin: true,
@@ -38,55 +37,6 @@ app.use((req, res, next) => {
 
 app.get('/', (req, res) => {
   res.json({ message: 'Meal order backend is running' });
-});
-
-app.post('/telegram/webhook/:telegramBotToken', async (req, res) => {
-  const { telegramBotToken } = req.params;
-  const message = req.body?.message;
-  const chatId = message?.chat?.id;
-  const text = String(message?.text || '');
-
-  if (!chatId) {
-    return res.sendStatus(200);
-  }
-
-  const payload = text.startsWith('/start')
-    ? {
-        chat_id: chatId,
-        text: 'Welcome. Open the meal menu below.',
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: 'Open Meal App',
-              web_app: { url: miniAppUrl },
-            },
-          ]],
-        },
-      }
-    : {
-        chat_id: chatId,
-        text: 'Use /start to open the Mini App.',
-      };
-
-  try {
-    const telegramResponse = await fetch(
-      `https://api.telegram.org/bot${telegramBotToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (!telegramResponse.ok) {
-      const body = await telegramResponse.text();
-      console.error('Telegram webhook sendMessage failed:', telegramResponse.status, body);
-    }
-  } catch (error) {
-    console.error('Telegram webhook error:', error);
-  }
-
-  return res.sendStatus(200);
 });
 
 app.use('/api', customerRoutes);
