@@ -25,7 +25,7 @@ export function getApiBaseURL() {
     }
   }
 
-  return 'https://mealorderbackend-production.up.railway.app/api';
+  throw new Error('VITE_API_URL is missing or invalid for production.');
 }
 
 const api = axios.create({
