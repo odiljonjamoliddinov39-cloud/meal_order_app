@@ -1,5 +1,33 @@
 import { prisma } from '../lib/prisma.js';
 
+const transientDatabaseCodes = new Set(['P1001', 'P1002', 'P1017']);
+const menuCache = {
+  days: null,
+  itemsByDate: new Map(),
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function withTransientRetry(operation, attempts = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+
+      if (!transientDatabaseCodes.has(error?.code) || attempt === attempts) {
+        throw error;
+      }
+
+      await sleep(250 * attempt);
+    }
+  }
+
+  throw lastError;
+}
+
 const getUserDisplayName = (user) => {
   const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
   if (fullName) return fullName;
@@ -44,7 +72,7 @@ const serializeOrder = (order) => ({
 
 export const getMenuDays = async (req, res) => {
   try {
-    const days = await prisma.menuDay.findMany({
+    const days = await withTransientRetry(() => prisma.menuDay.findMany({
       where: { isOpen: true },
       include: {
         items: {
@@ -52,18 +80,26 @@ export const getMenuDays = async (req, res) => {
         },
       },
       orderBy: { date: 'asc' },
-    });
+    }));
 
-    return res.json(
-      days.map((day) => ({
-        id: day.id,
-        date: day.date.toISOString().slice(0, 10),
-        label: day.date.toISOString().slice(0, 10),
-        itemsCount: day.items.length,
-      }))
-    );
+    const payload = days.map((day) => ({
+      id: day.id,
+      date: day.date.toISOString().slice(0, 10),
+      label: day.date.toISOString().slice(0, 10),
+      itemsCount: day.items.length,
+    }));
+
+    menuCache.days = payload;
+
+    return res.json(payload);
   } catch (error) {
     console.error('getMenuDays error:', error);
+
+    if (menuCache.days) {
+      res.set('x-menu-cache', 'stale');
+      return res.json(menuCache.days);
+    }
+
     return res.status(500).json({ message: 'Failed to fetch menu days' });
   }
 };
@@ -79,7 +115,7 @@ export const getMenuItemsByDate = async (req, res) => {
     const start = new Date(`${date}T00:00:00.000Z`);
     const end = new Date(`${date}T23:59:59.999Z`);
 
-    const day = await prisma.menuDay.findFirst({
+    const day = await withTransientRetry(() => prisma.menuDay.findFirst({
       where: {
         date: {
           gte: start,
@@ -93,13 +129,25 @@ export const getMenuItemsByDate = async (req, res) => {
           orderBy: { createdAt: 'asc' },
         },
       },
-    });
+    }));
 
-    if (!day) return res.json([]);
+    if (!day) {
+      menuCache.itemsByDate.set(date, []);
+      return res.json([]);
+    }
 
-    return res.json(day.items.map((item) => serializeItem({ ...item, menuDay: day })));
+    const payload = day.items.map((item) => serializeItem({ ...item, menuDay: day }));
+    menuCache.itemsByDate.set(date, payload);
+
+    return res.json(payload);
   } catch (error) {
     console.error('getMenuItemsByDate error:', error);
+
+    if (menuCache.itemsByDate.has(req.query.date)) {
+      res.set('x-menu-cache', 'stale');
+      return res.json(menuCache.itemsByDate.get(req.query.date));
+    }
+
     return res.status(500).json({ message: 'Failed to fetch menu items' });
   }
 };
