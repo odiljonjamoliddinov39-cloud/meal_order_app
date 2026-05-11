@@ -35,22 +35,49 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 
-bot.onText(/\/start/, async (msg) => {
-  await bot.sendMessage(msg.chat.id, 'Welcome ðŸ‘‹ Open the meal menu below.', {
-    reply_markup: {
-      inline_keyboard: [[
-        {
-          text: 'Open Meal App',
-          web_app: { url: miniAppUrl }
-        }
-      ]]
-    }
-  });
+bot.on('polling_error', (error) => {
+  console.error('Telegram polling error:', error?.message || error);
+});
+
+bot.on('error', (error) => {
+  console.error('Telegram bot error:', error?.message || error);
 });
 
 bot.on('message', async (msg) => {
-  if (msg.text && msg.text.startsWith('/')) return;
-  await bot.sendMessage(msg.chat.id, 'Use /start to open the Mini App.');
+  const chatId = msg.chat?.id;
+  const text = String(msg.text || '');
+
+  if (!chatId) return;
+
+  console.log(`Telegram message received chat=${chatId} text=${text || '[non-text]'}`);
+
+  try {
+    if (text.startsWith('/start')) {
+      await bot.sendMessage(chatId, 'Welcome. Open the meal menu below.', {
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: 'Open Meal App',
+              web_app: { url: miniAppUrl },
+            },
+          ]],
+        },
+      });
+      console.log(`Telegram /start response sent chat=${chatId}`);
+      return;
+    }
+
+    await bot.sendMessage(chatId, 'Use /start to open the Mini App.');
+    console.log(`Telegram help response sent chat=${chatId}`);
+  } catch (error) {
+    console.error('Telegram sendMessage failed:', error?.response?.body || error?.message || error);
+  }
 });
 
-console.log('Telegram bot is running');
+bot.getMe()
+  .then((me) => {
+    console.log(`Telegram bot is running username=@${me.username} miniAppUrl=${miniAppUrl}`);
+  })
+  .catch((error) => {
+    console.error('Telegram getMe failed:', error?.response?.body || error?.message || error);
+  });
