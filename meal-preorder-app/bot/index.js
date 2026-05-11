@@ -47,14 +47,21 @@ bot.on('message', async (msg) => {
 
   try {
     if (text.startsWith('/start')) {
-      await bot.sendMessage(chatId, 'Welcome. Open the meal menu below.', {
+      await bot.sendMessage(chatId, "Welcome. Tap Open Meal App to load today's menu.", {
         reply_markup: {
-          inline_keyboard: [[
-            {
-              text: 'Open Meal App',
-              web_app: { url: miniAppUrl },
-            },
-          ]],
+          keyboard: [
+            [{ text: 'Open Meal App', web_app: { url: miniAppUrl } }],
+          ],
+          resize_keyboard: true,
+          is_persistent: true,
+        },
+      });
+
+      await bot.sendMessage(chatId, `If the Telegram button does not load, open the same menu link here: ${miniAppUrl}`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Open Direct Link', url: miniAppUrl }],
+          ],
         },
       });
       console.log(`Telegram /start response sent chat=${chatId}`);
