@@ -6,25 +6,19 @@ dotenv.config();
 const token = process.env.BOT_TOKEN;
 
 function normalizeMiniAppUrl(value) {
-  const productionUrl = 'https://meal-order-app-mauve.vercel.app/web';
-  const fallbackUrl = process.env.NODE_ENV === 'production' ? productionUrl : 'http://localhost:5173/web';
-  const rawUrl = (value || fallbackUrl).trim();
+  const rawUrl = String(value || '').trim();
 
-  try {
-    const url = new URL(rawUrl);
-
-    if (url.hostname === 'brunchorder.netlify.app') {
-      return productionUrl;
-    }
-
-    if (!url.pathname || url.pathname === '/') {
-      url.pathname = '/web';
-    }
-
-    return url.toString();
-  } catch {
-    return rawUrl;
+  if (!rawUrl) {
+    throw new Error('MINI_APP_URL is required');
   }
+
+  const url = new URL(rawUrl);
+
+  if (!url.pathname || url.pathname === '/') {
+    url.pathname = '/web';
+  }
+
+  return url.toString();
 }
 
 const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL);
