@@ -27,25 +27,25 @@ const labels = {
     clearDayCart: 'Day changed, cart cleared',
   },
   RUS: {
-    allDays: 'Ð”Ð¾ÑÑ‚ÑƒÐ¿Ð½Ñ‹Ðµ Ð´Ð½Ð¸',
-    todayMenu: 'ÐœÐµÐ½ÑŽ',
-    yourOrder: 'Ð’Ð°Ñˆ Ð·Ð°ÐºÐ°Ð·',
-    selected: 'Ð²Ñ‹Ð±Ñ€Ð°Ð½Ð¾',
-    emptyOrder: 'Ð’Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ Ð¿Ð¾Ð·Ð¸Ñ†Ð¸Ð¸ Ð¸Ð· Ð¼ÐµÐ½ÑŽ',
-    loading: 'Ð—Ð°Ð³Ñ€ÑƒÐ·ÐºÐ° Ð¼ÐµÐ½ÑŽ...',
-    failed: 'ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð¼ÐµÐ½ÑŽ',
-    authRequired: 'ÐžÑ‚ÐºÑ€Ð¾Ð¹Ñ‚Ðµ Ð¼ÐµÐ½ÑŽ Ð¸Ð· Telegram, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð°ÐºÐºÐ°ÑƒÐ½Ñ‚',
-    noDays: 'Ð”Ð½Ð¸ Ð¼ÐµÐ½ÑŽ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ñ‹',
-    noItems: 'ÐÐµÑ‚ Ð°ÐºÑ‚Ð¸Ð²Ð½Ñ‹Ñ… Ð±Ð»ÑŽÐ´ Ð½Ð° ÑÑ‚Ð¾Ñ‚ Ð´ÐµÐ½ÑŒ',
-    meal: 'Ð•Ð´Ð°',
-    coffee: 'ÐšÐ¾Ñ„Ðµ',
-    drinks: 'ÐÐ°Ð¿Ð¸Ñ‚ÐºÐ¸',
-    dessert: 'Ð”ÐµÑÐµÑ€Ñ‚',
-    account: 'ÐÐºÐºÐ°ÑƒÐ½Ñ‚',
-    cart: 'ÐšÐ¾Ñ€Ð·Ð¸Ð½Ð°',
-    orders: 'Ð—Ð°ÐºÐ°Ð·Ñ‹',
-    openCart: 'ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ ÐºÐ¾Ñ€Ð·Ð¸Ð½Ñƒ',
-    clearDayCart: 'Ð”ÐµÐ½ÑŒ Ð¸Ð·Ð¼ÐµÐ½Ñ‘Ð½, ÐºÐ¾Ñ€Ð·Ð¸Ð½Ð° Ð¾Ñ‡Ð¸Ñ‰ÐµÐ½Ð°',
+    allDays: 'Available days',
+    todayMenu: 'Menu',
+    yourOrder: 'Your order',
+    selected: 'selected',
+    emptyOrder: 'Choose items from the menu',
+    loading: 'Loading menu...',
+    failed: 'Failed to load menu',
+    authRequired: 'Open this menu from Telegram to load your account',
+    noDays: 'No menu day found',
+    noItems: 'No active items for this day',
+    meal: 'Food',
+    coffee: 'Coffee',
+    drinks: 'Drinks',
+    dessert: 'Dessert',
+    account: 'Account',
+    cart: 'Cart',
+    orders: 'Orders',
+    openCart: 'Open cart',
+    clearDayCart: 'Day changed, cart cleared',
   },
   UZB: {
     allDays: 'Mavjud kunlar',
@@ -54,10 +54,10 @@ const labels = {
     selected: 'tanlandi',
     emptyOrder: 'Menyudan mahsulot tanlang',
     loading: 'Menyu yuklanmoqda...',
-    failed: 'Menyuni yuklab boâ€˜lmadi',
+    failed: "Menyuni yuklab bo'lmadi",
     authRequired: 'Akkauntingizni yuklash uchun menyuni Telegram orqali oching',
     noDays: 'Menyu kuni topilmadi',
-    noItems: 'Bu kunda faol mahsulot yoâ€˜q',
+    noItems: "Bu kunda faol mahsulot yo'q",
     meal: 'Ovqat',
     coffee: 'Qahva',
     drinks: 'Ichimlik',
@@ -66,7 +66,7 @@ const labels = {
     cart: 'Savat',
     orders: 'Buyurtmalar',
     openCart: 'Savatni ochish',
-    clearDayCart: 'Kun oâ€˜zgardi, savat tozalandi',
+    clearDayCart: "Kun o'zgardi, savat tozalandi",
   },
 };
 
@@ -118,17 +118,11 @@ function detectCategory(item) {
 
 
 function getEmoji(item) {
-  const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
-
-  if (text.includes('coffee') || text.includes('Ð»Ð°Ñ‚Ñ‚Ðµ') || text.includes('ÐºÐ¾Ñ„')) return 'â˜•';
-  if (text.includes('juice')) return 'ðŸ§ƒ';
-  if (text.includes('cola') || text.includes('drink')) return 'ðŸ¥¤';
-  if (text.includes('cake') || text.includes('dessert') || text.includes('Ñ‚Ð¾Ñ€Ñ‚')) return 'ðŸ°';
-  if (text.includes('ice cream') || text.includes('Ð¼Ð¾Ñ€Ð¾Ð¶')) return 'ðŸ¨';
-  if (text.includes('burger')) return 'ðŸ”';
-  if (text.includes('chicken')) return 'ðŸ—';
-
-  return 'ðŸ½ï¸';
+  const category = detectCategory(item);
+  if (category === 'coffee') return 'Coffee';
+  if (category === 'dessert') return 'Sweet';
+  if (category === 'drinks') return 'Drink';
+  return 'Food';
 }
 
 function getGradient(item) {
@@ -493,7 +487,7 @@ export default function HomePage() {
           </div>
 
           <Link to="/web/cart" style={styles.cartBubble}>
-            ðŸ›’ {cartCount}
+            Cart {cartCount}
           </Link>
         </div>
 
@@ -539,7 +533,7 @@ export default function HomePage() {
 
                     <div style={styles.counterWrap}>
                       <button style={styles.counterBtn} onClick={() => changeQty(item, -1)}>
-                        âˆ’
+                        -
                       </button>
                       <span style={styles.counterValue}>{qty}</span>
                       <button
@@ -592,17 +586,7 @@ export default function HomePage() {
 
       <div style={styles.bottomNav}>
         <button style={{ ...styles.navItem, ...styles.navActive }} type="button">
-          <span style={styles.navIcon}>ðŸ‘¤</span>
-          <span style={styles.navText}>{l.account}</span>
-        </button>
-
-        <Link to="/web/cart" style={styles.navItem}>
-          <span style={styles.navIcon}>ðŸ›’</span>
-          <span style={styles.navText}>{l.cart}</span>
-        </Link>
-
-        <Link to="/web/orders" style={styles.navItem}>
-          <span style={styles.navIcon}>â˜°</span>
+          <span style={styles.navIcon}>O</span>
           <span style={styles.navText}>{l.orders}</span>
         </Link>
       </div>
