@@ -27,25 +27,25 @@ const labels = {
     clearDayCart: 'Day changed, cart cleared',
   },
   RUS: {
-    allDays: 'Доступные дни',
-    todayMenu: 'Меню',
-    yourOrder: 'Ваш заказ',
-    selected: 'выбрано',
-    emptyOrder: 'Выберите позиции из меню',
-    loading: 'Загрузка меню...',
-    failed: 'Не удалось загрузить меню',
-    authRequired: 'Откройте меню из Telegram, чтобы загрузить аккаунт',
-    noDays: 'Дни меню не найдены',
-    noItems: 'Нет активных блюд на этот день',
-    meal: 'Еда',
-    coffee: 'Кофе',
-    drinks: 'Напитки',
-    dessert: 'Десерт',
-    account: 'Аккаунт',
-    cart: 'Корзина',
-    orders: 'Заказы',
-    openCart: 'Открыть корзину',
-    clearDayCart: 'День изменён, корзина очищена',
+    allDays: 'Ð”Ð¾ÑÑ‚ÑƒÐ¿Ð½Ñ‹Ðµ Ð´Ð½Ð¸',
+    todayMenu: 'ÐœÐµÐ½ÑŽ',
+    yourOrder: 'Ð’Ð°Ñˆ Ð·Ð°ÐºÐ°Ð·',
+    selected: 'Ð²Ñ‹Ð±Ñ€Ð°Ð½Ð¾',
+    emptyOrder: 'Ð’Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ Ð¿Ð¾Ð·Ð¸Ñ†Ð¸Ð¸ Ð¸Ð· Ð¼ÐµÐ½ÑŽ',
+    loading: 'Ð—Ð°Ð³Ñ€ÑƒÐ·ÐºÐ° Ð¼ÐµÐ½ÑŽ...',
+    failed: 'ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð¼ÐµÐ½ÑŽ',
+    authRequired: 'ÐžÑ‚ÐºÑ€Ð¾Ð¹Ñ‚Ðµ Ð¼ÐµÐ½ÑŽ Ð¸Ð· Telegram, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð°ÐºÐºÐ°ÑƒÐ½Ñ‚',
+    noDays: 'Ð”Ð½Ð¸ Ð¼ÐµÐ½ÑŽ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ñ‹',
+    noItems: 'ÐÐµÑ‚ Ð°ÐºÑ‚Ð¸Ð²Ð½Ñ‹Ñ… Ð±Ð»ÑŽÐ´ Ð½Ð° ÑÑ‚Ð¾Ñ‚ Ð´ÐµÐ½ÑŒ',
+    meal: 'Ð•Ð´Ð°',
+    coffee: 'ÐšÐ¾Ñ„Ðµ',
+    drinks: 'ÐÐ°Ð¿Ð¸Ñ‚ÐºÐ¸',
+    dessert: 'Ð”ÐµÑÐµÑ€Ñ‚',
+    account: 'ÐÐºÐºÐ°ÑƒÐ½Ñ‚',
+    cart: 'ÐšÐ¾Ñ€Ð·Ð¸Ð½Ð°',
+    orders: 'Ð—Ð°ÐºÐ°Ð·Ñ‹',
+    openCart: 'ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ ÐºÐ¾Ñ€Ð·Ð¸Ð½Ñƒ',
+    clearDayCart: 'Ð”ÐµÐ½ÑŒ Ð¸Ð·Ð¼ÐµÐ½Ñ‘Ð½, ÐºÐ¾Ñ€Ð·Ð¸Ð½Ð° Ð¾Ñ‡Ð¸Ñ‰ÐµÐ½Ð°',
   },
   UZB: {
     allDays: 'Mavjud kunlar',
@@ -54,10 +54,10 @@ const labels = {
     selected: 'tanlandi',
     emptyOrder: 'Menyudan mahsulot tanlang',
     loading: 'Menyu yuklanmoqda...',
-    failed: 'Menyuni yuklab bo‘lmadi',
+    failed: 'Menyuni yuklab boâ€˜lmadi',
     authRequired: 'Akkauntingizni yuklash uchun menyuni Telegram orqali oching',
     noDays: 'Menyu kuni topilmadi',
-    noItems: 'Bu kunda faol mahsulot yo‘q',
+    noItems: 'Bu kunda faol mahsulot yoâ€˜q',
     meal: 'Ovqat',
     coffee: 'Qahva',
     drinks: 'Ichimlik',
@@ -66,7 +66,7 @@ const labels = {
     cart: 'Savat',
     orders: 'Buyurtmalar',
     openCart: 'Savatni ochish',
-    clearDayCart: 'Kun o‘zgardi, savat tozalandi',
+    clearDayCart: 'Kun oâ€˜zgardi, savat tozalandi',
   },
 };
 
@@ -120,15 +120,15 @@ function detectCategory(item) {
 function getEmoji(item) {
   const text = `${item.name || ''} ${item.description || ''}`.toLowerCase();
 
-  if (text.includes('coffee') || text.includes('латте') || text.includes('коф')) return '☕';
-  if (text.includes('juice')) return '🧃';
-  if (text.includes('cola') || text.includes('drink')) return '🥤';
-  if (text.includes('cake') || text.includes('dessert') || text.includes('торт')) return '🍰';
-  if (text.includes('ice cream') || text.includes('морож')) return '🍨';
-  if (text.includes('burger')) return '🍔';
-  if (text.includes('chicken')) return '🍗';
+  if (text.includes('coffee') || text.includes('Ð»Ð°Ñ‚Ñ‚Ðµ') || text.includes('ÐºÐ¾Ñ„')) return 'â˜•';
+  if (text.includes('juice')) return 'ðŸ§ƒ';
+  if (text.includes('cola') || text.includes('drink')) return 'ðŸ¥¤';
+  if (text.includes('cake') || text.includes('dessert') || text.includes('Ñ‚Ð¾Ñ€Ñ‚')) return 'ðŸ°';
+  if (text.includes('ice cream') || text.includes('Ð¼Ð¾Ñ€Ð¾Ð¶')) return 'ðŸ¨';
+  if (text.includes('burger')) return 'ðŸ”';
+  if (text.includes('chicken')) return 'ðŸ—';
 
-  return '🍽️';
+  return 'ðŸ½ï¸';
 }
 
 function getGradient(item) {
@@ -185,6 +185,25 @@ function getItemKey(item) {
   return String(item?.menuItemId || item?.id || '');
 }
 
+async function getWithRetry(url, params = {}, attempts = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await api.get(url, {
+        params: { ...params, _fresh: Date.now() },
+      });
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === attempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+    }
+  }
+
+  throw lastError;
+}
+
 
 
 export default function HomePage() {
@@ -221,7 +240,7 @@ export default function HomePage() {
         setError('');
         setMessage('');
 
-        const res = await api.get('/menu/days');
+        const res = await getWithRetry('/menu/days');
         if (!mounted) return;
 
         const rawDays = Array.isArray(res.data) ? res.data : [];
@@ -232,9 +251,11 @@ export default function HomePage() {
 
         setDays(safeDays);
 
-        if (safeDays.length) {
-          setSelectedDate(safeDays[0].date);
-          setMenuDayId(safeDays[0].id);
+        const preferredDay = safeDays.find((day) => Number(day.itemsCount || 0) > 0) || safeDays[0];
+
+        if (preferredDay) {
+          setSelectedDate(preferredDay.date);
+          setMenuDayId(preferredDay.id);
         } else {
           setSelectedDate('');
           setMenuDayId('');
@@ -266,7 +287,9 @@ export default function HomePage() {
         setError('');
         setMessage('');
 
-        const res = await api.get(`/menu/items?date=${selectedDate}`);
+        const res = await getWithRetry('/menu/items', {
+          date: selectedDate,
+        });
         if (!mounted) return;
 
         const raw = res.data;
@@ -470,7 +493,7 @@ export default function HomePage() {
           </div>
 
           <Link to="/web/cart" style={styles.cartBubble}>
-            🛒 {cartCount}
+            ðŸ›’ {cartCount}
           </Link>
         </div>
 
@@ -516,7 +539,7 @@ export default function HomePage() {
 
                     <div style={styles.counterWrap}>
                       <button style={styles.counterBtn} onClick={() => changeQty(item, -1)}>
-                        −
+                        âˆ’
                       </button>
                       <span style={styles.counterValue}>{qty}</span>
                       <button
@@ -569,17 +592,17 @@ export default function HomePage() {
 
       <div style={styles.bottomNav}>
         <button style={{ ...styles.navItem, ...styles.navActive }} type="button">
-          <span style={styles.navIcon}>👤</span>
+          <span style={styles.navIcon}>ðŸ‘¤</span>
           <span style={styles.navText}>{l.account}</span>
         </button>
 
         <Link to="/web/cart" style={styles.navItem}>
-          <span style={styles.navIcon}>🛒</span>
+          <span style={styles.navIcon}>ðŸ›’</span>
           <span style={styles.navText}>{l.cart}</span>
         </Link>
 
         <Link to="/web/orders" style={styles.navItem}>
-          <span style={styles.navIcon}>☰</span>
+          <span style={styles.navIcon}>â˜°</span>
           <span style={styles.navText}>{l.orders}</span>
         </Link>
       </div>
