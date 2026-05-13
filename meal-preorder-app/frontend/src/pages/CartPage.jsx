@@ -22,35 +22,35 @@ const labels = {
     submitting: 'Placing...',
   },
   RUS: {
-    title: 'Корзина',
-    subtitle: 'Проверьте выбранные позиции',
-    back: 'Назад',
-    empty: 'Корзина пуста',
-    emptyText: 'Сначала добавьте позиции из меню.',
-    goMenu: 'Перейти в меню',
-    subtotal: 'Сумма',
-    placeOrder: 'Оформить заказ',
-    clearCart: 'Очистить корзину',
-    ordered: 'Заказ успешно создан',
-    failed: 'Не удалось создать заказ',
-    authRequired: 'Откройте меню из Telegram перед оформлением заказа',
-    cartMismatch: 'В корзине смешаны или неверные данные дня. Добавьте заново товары одного дня.',
-    submitting: 'Отправка...',
+    title: 'Cart',
+    subtitle: 'Review your selected items',
+    back: 'Back',
+    empty: 'Your cart is empty',
+    emptyText: 'Add items from the menu first.',
+    goMenu: 'Go to menu',
+    subtotal: 'Subtotal',
+    placeOrder: 'Place order',
+    clearCart: 'Clear cart',
+    ordered: 'Order placed successfully',
+    failed: 'Failed to place order',
+    authRequired: 'Open this menu from Telegram before placing an order',
+    cartMismatch: 'Cart contains mixed or invalid day data. Re-add items from one day.',
+    submitting: 'Placing...',
   },
   UZB: {
     title: 'Savat',
     subtitle: 'Tanlangan mahsulotlarni tekshiring',
     back: 'Orqaga',
-    empty: 'Savatcha bo‘sh',
-    emptyText: 'Avval menyudan mahsulot qo‘shing.',
-    goMenu: 'Menyuga o‘tish',
+    empty: "Savatcha bo'sh",
+    emptyText: "Avval menyudan mahsulot qo'shing.",
+    goMenu: "Menyuga o'tish",
     subtotal: 'Jami',
     placeOrder: 'Buyurtma berish',
     clearCart: 'Savatni tozalash',
     ordered: 'Buyurtma muvaffaqiyatli yaratildi',
     failed: 'Buyurtma yaratilmadi',
     authRequired: 'Buyurtma berishdan oldin menyuni Telegram orqali oching',
-    cartMismatch: 'Savatchada turli kun yoki noto‘g‘ri ma’lumotlar bor. Bitta kun uchun qayta qo‘shing.',
+    cartMismatch: "Savatchada turli kun yoki noto'g'ri ma'lumotlar bor. Bitta kun uchun qayta qo'shing.",
     submitting: 'Yuborilmoqda...',
   },
 };
@@ -185,7 +185,7 @@ export default function CartPage() {
         </div>
 
         <Link to="/web" style={styles.backLink}>
-          ← {l.back}
+          Back: {l.back}
         </Link>
       </div>
 
@@ -198,7 +198,7 @@ export default function CartPage() {
                 return (
                   <div key={itemKey} style={styles.card}>
                     <div style={styles.left}>
-                      <div style={styles.itemEmoji}>{item.emoji || '🍽️'}</div>
+                      <div style={styles.itemEmoji}>{item.emoji || 'Food'}</div>
 
                       <div>
                         <div style={styles.itemName}>{item.name}</div>
@@ -217,7 +217,7 @@ export default function CartPage() {
                           onClick={() => updateQty(itemKey, -1)}
                           disabled={submitting}
                         >
-                          −
+                          -
                         </button>
 
                         <span style={styles.counterValue}>{item.qty}</span>
