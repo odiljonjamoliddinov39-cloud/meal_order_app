@@ -47,6 +47,15 @@ bot.on('message', async (msg) => {
 
   try {
     if (text.startsWith('/start')) {
+      await bot.setChatMenuButton({
+        chat_id: chatId,
+        menu_button: {
+          type: 'web_app',
+          text: 'Open Meal App',
+          web_app: { url: miniAppUrl },
+        },
+      });
+
       await bot.sendMessage(chatId, "Welcome. Tap Open Meal App to load today's menu.", {
         reply_markup: {
           keyboard: [
