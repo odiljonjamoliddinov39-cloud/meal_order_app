@@ -19,33 +19,33 @@ const labels = {
     authRequired: 'Open this page from Telegram to load your orders',
   },
   RUS: {
-    title: 'Мои заказы',
-    subtitle: 'Заказы загружены с сервера',
-    back: 'Домой',
-    empty: 'Пока нет заказов',
-    emptyText: 'Оформите заказ в корзине, и он появится здесь.',
-    goCart: 'Перейти в корзину',
-    total: 'Итого',
-    statusPending: 'В ожидании',
-    statusConfirmed: 'Подтвержден',
-    statusCancelled: 'Отменен',
-    loading: 'Загрузка заказов...',
-    failed: 'Не удалось загрузить заказы',
-    authRequired: 'Откройте страницу из Telegram, чтобы загрузить заказы',
+    title: 'My orders',
+    subtitle: 'Orders loaded from backend',
+    back: 'Home',
+    empty: 'No orders yet',
+    emptyText: 'Place an order from the cart page and it will appear here.',
+    goCart: 'Go to cart',
+    total: 'Total',
+    statusPending: 'Pending',
+    statusConfirmed: 'Confirmed',
+    statusCancelled: 'Cancelled',
+    loading: 'Loading orders...',
+    failed: 'Failed to load orders',
+    authRequired: 'Open this page from Telegram to load your orders',
   },
   UZB: {
     title: 'Mening buyurtmalarim',
     subtitle: 'Buyurtmalar serverdan yuklandi',
     back: 'Bosh sahifa',
-    empty: 'Hozircha buyurtma yo‘q',
+    empty: "Hozircha buyurtma yo'q",
     emptyText: 'Savatdan buyurtma bering, u shu yerda chiqadi.',
-    goCart: 'Savatga o‘tish',
+    goCart: "Savatga o'tish",
     total: 'Jami',
     statusPending: 'Kutilmoqda',
     statusConfirmed: 'Tasdiqlangan',
     statusCancelled: 'Bekor qilingan',
     loading: 'Buyurtmalar yuklanmoqda...',
-    failed: 'Buyurtmalarni yuklab bo‘lmadi',
+    failed: "Buyurtmalarni yuklab bo'lmadi",
     authRequired: 'Buyurtmalarni yuklash uchun sahifani Telegram orqali oching',
   },
 };
@@ -155,7 +155,7 @@ export default function OrdersPage() {
         </div>
 
         <Link to="/web" style={styles.backLink}>
-          ← {l.back}
+          Back: {l.back}
         </Link>
       </div>
 
