@@ -8,7 +8,7 @@ import {
 } from '../api/telegramAuth.js';
 
 const STORAGE_LANG_KEY = 'meal_app_lang_v2';
-const DEFAULT_LANGUAGE = 'RUS';
+const DEFAULT_LANGUAGE = 'UZB';
 
 const translations = {
   ENG: {
@@ -29,21 +29,21 @@ const translations = {
     themeHint: 'Mini app settings',
   },
   RUS: {
-    menu: 'Меню',
-    settings: 'Настройки',
-    account: 'Аккаунт',
-    cart: 'Корзина',
-    orders: 'Заказы',
-    language: 'Язык',
-    save: 'Сохранить',
-    close: 'Закрыть',
-    profile: 'Профиль',
-    telegramName: 'Имя в Telegram',
-    username: 'Имя пользователя',
+    menu: 'Menu',
+    settings: 'Settings',
+    account: 'Account',
+    cart: 'Cart',
+    orders: 'Orders',
+    language: 'Language',
+    save: 'Save',
+    close: 'Close',
+    profile: 'Profile',
+    telegramName: 'Telegram name',
+    username: 'Username',
     telegramId: 'Telegram ID',
-    noUsername: 'Нет username',
-    noPhoto: 'Нет фото',
-    themeHint: 'Настройки мини-приложения',
+    noUsername: 'No username',
+    noPhoto: 'No photo',
+    themeHint: 'Mini app settings',
   },
   UZB: {
     menu: 'Menyu',
@@ -58,8 +58,8 @@ const translations = {
     telegramName: 'Telegram nomi',
     username: 'Username',
     telegramId: 'Telegram ID',
-    noUsername: 'Username yo‘q',
-    noPhoto: 'Rasm yo‘q',
+    noUsername: "Username yo'q",
+    noPhoto: "Rasm yo'q",
     themeHint: 'Mini ilova sozlamalari',
   },
 };
@@ -128,7 +128,7 @@ export default function CustomerLayout() {
         {/* TOP BAR */}
         <div style={styles.topBar}>
           <button style={styles.iconButton} onClick={() => setMenuOpen(v => !v)}>
-            ☰
+            ?
           </button>
 
           <div style={styles.brandBlock}>
@@ -140,7 +140,7 @@ export default function CustomerLayout() {
             {user?.photo_url ? (
               <img src={user.photo_url} alt="profile" style={styles.accountImage} />
             ) : (
-              <span style={styles.accountFallback}>👤</span>
+              <span style={styles.accountFallback}>??</span>
             )}
           </button>
         </div>
