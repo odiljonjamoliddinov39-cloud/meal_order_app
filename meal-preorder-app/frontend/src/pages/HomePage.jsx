@@ -586,6 +586,16 @@ export default function HomePage() {
 
       <div style={styles.bottomNav}>
         <button style={{ ...styles.navItem, ...styles.navActive }} type="button">
+          <span style={styles.navIcon}>A</span>
+          <span style={styles.navText}>{l.account}</span>
+        </button>
+
+        <Link to="/web/cart" style={styles.navItem}>
+          <span style={styles.navIcon}>C</span>
+          <span style={styles.navText}>{l.cart}</span>
+        </Link>
+
+        <Link to="/web/orders" style={styles.navItem}>
           <span style={styles.navIcon}>O</span>
           <span style={styles.navText}>{l.orders}</span>
         </Link>
