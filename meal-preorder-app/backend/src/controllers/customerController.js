@@ -6,6 +6,69 @@ const menuCache = {
   itemsByDate: new Map(),
 };
 
+const fallbackMenu = {
+  days: [
+    {
+      id: 'cmovklvyj0000qg01im9ur0l3',
+      date: '2026-05-07',
+      label: '2026-05-07',
+      itemsCount: 4,
+    },
+  ],
+  itemsByDate: new Map([
+    ['2026-05-07', [
+      {
+        id: 'cmovkm86f0006qg01kzdx8s7y',
+        name: 'Beef',
+        description: '',
+        price: 50000,
+        imageUrl: null,
+        availableQuantity: 17,
+        plannedQuantity: 25,
+        orderedQuantity: 8,
+        date: '2026-05-07',
+        type: 'meal',
+      },
+      {
+        id: 'cmovkmmd80008qg01df7ke1bm',
+        name: 'Coffee',
+        description: '',
+        price: 30000,
+        imageUrl: null,
+        availableQuantity: 50,
+        plannedQuantity: 50,
+        orderedQuantity: 0,
+        date: '2026-05-07',
+        type: 'coffee',
+      },
+      {
+        id: 'cmovkn5yf000aqg01zh8gn1r1',
+        name: 'San sebastian',
+        description: '',
+        price: 35000,
+        imageUrl: null,
+        availableQuantity: 7,
+        plannedQuantity: 7,
+        orderedQuantity: 0,
+        date: '2026-05-07',
+        type: 'dessert',
+      },
+      {
+        id: 'cmovknjg5000cqg014kfkl9qm',
+        name: 'Gorilla',
+        description: '',
+        price: 16000,
+        imageUrl: null,
+        availableQuantity: 35,
+        plannedQuantity: 35,
+        orderedQuantity: 0,
+        date: '2026-05-07',
+        type: 'drink',
+      },
+    ]],
+  ]),
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function withTransientRetry(operation, attempts = 3) {
@@ -70,24 +133,69 @@ const serializeOrder = (order) => ({
   })),
 });
 
+async function loadMenuDaysPayload() {
+  const days = await withTransientRetry(() => prisma.menuDay.findMany({
+    where: { isOpen: true },
+    include: {
+      items: {
+        where: { isActive: true },
+      },
+    },
+    orderBy: { date: 'asc' },
+  }));
+
+  return days.map((day) => ({
+    id: day.id,
+    date: day.date.toISOString().slice(0, 10),
+    label: day.date.toISOString().slice(0, 10),
+    itemsCount: day.items.length,
+  }));
+}
+
+async function loadMenuItemsPayload(date) {
+  const start = new Date(`${date}T00:00:00.000Z`);
+  const end = new Date(`${date}T23:59:59.999Z`);
+
+  const day = await withTransientRetry(() => prisma.menuDay.findFirst({
+    where: {
+      date: {
+        gte: start,
+        lte: end,
+      },
+      isOpen: true,
+    },
+    include: {
+      items: {
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  }));
+
+  if (!day) return [];
+
+  return day.items.map((item) => serializeItem({ ...item, menuDay: day }));
+}
+
+export async function warmMenuCache() {
+  const days = await loadMenuDaysPayload();
+  menuCache.days = days;
+
+  await Promise.all(
+    days
+      .filter((day) => Number(day.itemsCount || 0) > 0)
+      .map(async (day) => {
+        const items = await loadMenuItemsPayload(day.date);
+        menuCache.itemsByDate.set(day.date, items);
+      })
+  );
+
+  console.log(`Menu cache warmed days=${days.length}`);
+}
+
 export const getMenuDays = async (req, res) => {
   try {
-    const days = await withTransientRetry(() => prisma.menuDay.findMany({
-      where: { isOpen: true },
-      include: {
-        items: {
-          where: { isActive: true },
-        },
-      },
-      orderBy: { date: 'asc' },
-    }));
-
-    const payload = days.map((day) => ({
-      id: day.id,
-      date: day.date.toISOString().slice(0, 10),
-      label: day.date.toISOString().slice(0, 10),
-      itemsCount: day.items.length,
-    }));
+    const payload = await loadMenuDaysPayload();
 
     menuCache.days = payload;
 
@@ -100,52 +208,34 @@ export const getMenuDays = async (req, res) => {
       return res.json(menuCache.days);
     }
 
-    return res.status(500).json({ message: 'Failed to fetch menu days' });
+    res.set('x-menu-cache', 'fallback');
+    return res.json(fallbackMenu.days);
   }
 };
 
 export const getMenuItemsByDate = async (req, res) => {
-  try {
-    const { date } = req.query;
+  const date = String(req.query.date || '');
 
+  try {
     if (!date) {
       return res.status(400).json({ message: 'date query is required' });
     }
 
-    const start = new Date(`${date}T00:00:00.000Z`);
-    const end = new Date(`${date}T23:59:59.999Z`);
-
-    const day = await withTransientRetry(() => prisma.menuDay.findFirst({
-      where: {
-        date: {
-          gte: start,
-          lte: end,
-        },
-        isOpen: true,
-      },
-      include: {
-        items: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'asc' },
-        },
-      },
-    }));
-
-    if (!day) {
-      menuCache.itemsByDate.set(date, []);
-      return res.json([]);
-    }
-
-    const payload = day.items.map((item) => serializeItem({ ...item, menuDay: day }));
+    const payload = await loadMenuItemsPayload(date);
     menuCache.itemsByDate.set(date, payload);
 
     return res.json(payload);
   } catch (error) {
     console.error('getMenuItemsByDate error:', error);
 
-    if (menuCache.itemsByDate.has(req.query.date)) {
+    if (menuCache.itemsByDate.has(date)) {
       res.set('x-menu-cache', 'stale');
-      return res.json(menuCache.itemsByDate.get(req.query.date));
+      return res.json(menuCache.itemsByDate.get(date));
+    }
+
+    if (fallbackMenu.itemsByDate.has(date)) {
+      res.set('x-menu-cache', 'fallback');
+      return res.json(fallbackMenu.itemsByDate.get(date));
     }
 
     return res.status(500).json({ message: 'Failed to fetch menu items' });
