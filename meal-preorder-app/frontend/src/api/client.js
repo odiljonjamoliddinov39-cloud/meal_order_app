@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { getRequestTelegramUser, getTelegramHeaders } from './telegramAuth.js';
 
+const PRODUCTION_API_FALLBACK = 'https://mealorderbackend-production.up.railway.app/api';
+
 export function getApiBaseURL() {
   const configured = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.trim() : '';
 
@@ -23,13 +25,16 @@ export function getApiBaseURL() {
     if (configured && !pointsToLocalhost) {
       return configured;
     }
+
+    return PRODUCTION_API_FALLBACK;
   }
 
-  throw new Error('VITE_API_URL is missing or invalid for production.');
+  return configured || PRODUCTION_API_FALLBACK;
 }
 
 const api = axios.create({
   baseURL: getApiBaseURL(),
+  timeout: 20000,
 });
 
 api.interceptors.request.use(async (config) => {
@@ -37,6 +42,11 @@ api.interceptors.request.use(async (config) => {
   const isAdminRequest = requestUrl.startsWith('/admin');
 
   config.headers = config.headers || {};
+
+  if (config.method?.toLowerCase() === 'get') {
+    config.headers['cache-control'] = 'no-cache';
+    config.headers.pragma = 'no-cache';
+  }
 
   if (!isAdminRequest) {
     const telegramUser = await getRequestTelegramUser();
