@@ -3,6 +3,7 @@ import cors from 'cors';
 
 import customerRoutes from './routes/customerRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import { warmMenuCache } from './controllers/customerController.js';
 
 const app = express();
 
@@ -22,9 +23,28 @@ function normalizeMiniAppUrl(value) {
   return url.toString();
 }
 
-const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL || 'https://meal-order-app-mauve.vercel.app/web?v=31');
+const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL || 'https://meal-order-app-mauve.vercel.app/web?v=32');
 const telegramBotToken = process.env.BOT_TOKEN || '';
 const telegramWebhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+
+async function callTelegram(method, payload) {
+  const telegramResponse = await fetch(
+    `https://api.telegram.org/bot${telegramBotToken}/${method}`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!telegramResponse.ok) {
+    const body = await telegramResponse.text();
+    console.error(`Telegram ${method} failed:`, telegramResponse.status, body);
+    return false;
+  }
+
+  return true;
+}
 
 app.use(cors({
   origin: true,
@@ -32,6 +52,13 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+app.use('/api/menu', (req, res, next) => {
+  res.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('pragma', 'no-cache');
+  res.set('expires', '0');
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -101,20 +128,19 @@ app.post('/telegram/webhook/:secret', async (req, res) => {
       }];
 
   try {
-    for (const payload of payloads) {
-      const telegramResponse = await fetch(
-        `https://api.telegram.org/bot${telegramBotToken}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
+    if (text.startsWith('/start')) {
+      await callTelegram('setChatMenuButton', {
+        chat_id: chatId,
+        menu_button: {
+          type: 'web_app',
+          text: 'Open Meal App',
+          web_app: { url: miniAppUrl },
+        },
+      });
+    }
 
-      if (!telegramResponse.ok) {
-        const body = await telegramResponse.text();
-        console.error('Telegram webhook sendMessage failed:', telegramResponse.status, body);
-      }
+    for (const payload of payloads) {
+      await callTelegram('sendMessage', payload);
     }
 
     console.log(`Telegram webhook response sent chat=${chatId}`);
@@ -140,3 +166,13 @@ ports.forEach((port) => {
     console.log(`Server running on ${HOST}:${port}`);
   });
 });
+
+warmMenuCache().catch((error) => {
+  console.error('Initial menu cache warm failed:', error?.message || error);
+});
+
+setInterval(() => {
+  warmMenuCache().catch((error) => {
+    console.error('Scheduled menu cache warm failed:', error?.message || error);
+  });
+}, 60_000);
