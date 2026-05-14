@@ -6,7 +6,13 @@ dotenv.config();
 const token = process.env.BOT_TOKEN;
 
 function normalizeMiniAppUrl(value) {
+<<<<<<< HEAD
   const rawUrl = String(value || '').trim();
+=======
+  const productionUrl = 'https://meal-order-app-mauve.vercel.app/web';
+  const fallbackUrl = process.env.NODE_ENV === 'production' ? productionUrl : 'https://meal-order-app-mauve.vercel.app/web';
+  const rawUrl = (value || fallbackUrl).trim();
+>>>>>>> 056773c (Fix bot mini app URL)
 
   if (!rawUrl) {
     throw new Error('MINI_APP_URL is required');
