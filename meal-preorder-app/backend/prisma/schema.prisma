@@ -92,3 +92,22 @@ model OrderItem {
   @@index([orderId])
   @@index([menuItemId])
 }
+
+model DiagnosticLog {
+  id             String   @id @default(cuid())
+  level          String
+  source         String
+  method         String?
+  path           String?
+  status         Int?
+  durationMs     Int?
+  origin         String?
+  telegramUserId String?
+  message        String
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level])
+  @@index([source])
+  @@index([telegramUserId])
+}
