@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { clearDiagnostics, getDiagnostics } from '../lib/diagnostics.js';
 
 const getUserDisplayName = (user) => {
   const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
@@ -275,6 +276,18 @@ export const getAdminSummary = async (req, res) => {
     console.error('getAdminSummary error:', error);
     return res.status(500).json({ message: 'Failed to load summary' });
   }
+};
+
+export const getAdminDiagnostics = async (req, res) => {
+  const limit = req.query.limit || 120;
+  return res.json({
+    logs: getDiagnostics(limit),
+  });
+};
+
+export const clearAdminDiagnostics = async (req, res) => {
+  clearDiagnostics();
+  return res.json({ message: 'Diagnostics cleared' });
 };
 
 export const deleteAdminMenuDay = async (req, res) => {
