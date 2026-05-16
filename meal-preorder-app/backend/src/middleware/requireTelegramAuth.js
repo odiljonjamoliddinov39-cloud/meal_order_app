@@ -13,12 +13,21 @@ function readValue(...values) {
   return '';
 }
 
+function sanitizeProfileValue(value) {
+  return String(value || '')
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+}
+
 export default async function requireTelegramAuth(req, res, next) {
   try {
     const telegramUserId = readValue(
       req.headers['x-telegram-user-id'],
       req.query.telegramUserId
-    );
+    ).replace(/[^\d]/g, '');
 
     if (!telegramUserId) {
       return res.status(401).json({
@@ -26,22 +35,22 @@ export default async function requireTelegramAuth(req, res, next) {
       });
     }
 
-    const firstName = readValue(
+    const firstName = sanitizeProfileValue(readValue(
       req.headers['x-telegram-first-name'],
       req.query.telegramFirstName
-    );
-    const lastName = readValue(
+    ));
+    const lastName = sanitizeProfileValue(readValue(
       req.headers['x-telegram-last-name'],
       req.query.telegramLastName
-    );
-    const username = readValue(
+    ));
+    const username = sanitizeProfileValue(readValue(
       req.headers['x-telegram-username'],
       req.query.telegramUsername
-    ).replace(/^@/, '');
-    const displayName = readValue(
+    ).replace(/^@/, ''));
+    const displayName = sanitizeProfileValue(readValue(
       req.headers['x-telegram-user-name'],
       req.query.telegramUserName
-    );
+    ));
     const fallbackName = username || displayName || `user_${telegramUserId}`;
 
     req.user = {
