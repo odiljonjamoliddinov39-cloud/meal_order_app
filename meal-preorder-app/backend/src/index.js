@@ -161,7 +161,9 @@ app.use('/api', adminRoutes);
 
 app.use((error, req, res, next) => {
   if (error instanceof SyntaxError && 'body' in error) {
-    return res.status(400).json({ message: 'Invalid JSON request body' });
+    res.status(400);
+    recordRequestLog(req, res, 0);
+    return res.json({ message: 'Invalid JSON request body' });
   }
 
   console.error('Unhandled request error:', error);
