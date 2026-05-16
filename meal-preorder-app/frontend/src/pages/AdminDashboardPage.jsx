@@ -6,9 +6,12 @@ export default function AdminDashboardPage() {
   const [days, setDays] = useState([]);
   const [orders, setOrders] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [logTotal, setLogTotal] = useState(0);
+  const [logHasMore, setLogHasMore] = useState(false);
   const [logFilter, setLogFilter] = useState('all');
   const [logSourceFilter, setLogSourceFilter] = useState('all');
   const [logRange, setLogRange] = useState('24h');
+  const [logLimit, setLogLimit] = useState('1000');
   const [logSearch, setLogSearch] = useState('');
   const [logTelegramId, setLogTelegramId] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
@@ -50,7 +53,7 @@ export default function AdminDashboardPage() {
   const fetchLogs = async () => {
     try {
       const params = new URLSearchParams({
-        limit: '500',
+        limit: logLimit,
         range: logRange,
         level: logFilter,
         source: logSourceFilter,
@@ -61,6 +64,8 @@ export default function AdminDashboardPage() {
 
       const res = await api.get(`/admin/diagnostics?${params.toString()}`);
       setLogs(Array.isArray(res.data?.logs) ? res.data.logs : []);
+      setLogTotal(Number(res.data?.total || 0));
+      setLogHasMore(Boolean(res.data?.hasMore));
     } catch (error) {
       console.error('ADMIN LOGS FETCH ERROR:', error?.response?.data || error.message);
     }
@@ -70,6 +75,8 @@ export default function AdminDashboardPage() {
     try {
       await api.delete('/admin/diagnostics');
       setLogs([]);
+      setLogTotal(0);
+      setLogHasMore(false);
     } catch (error) {
       console.error('ADMIN LOGS CLEAR ERROR:', error?.response?.data || error.message);
     }
@@ -302,6 +309,17 @@ export default function AdminDashboardPage() {
             </select>
 
             <select
+              value={logLimit}
+              onChange={(e) => setLogLimit(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="250">Show 250</option>
+              <option value="500">Show 500</option>
+              <option value="1000">Show 1000</option>
+              <option value="5000">Show 5000</option>
+            </select>
+
+            <select
               value={logFilter}
               onChange={(e) => setLogFilter(e.target.value)}
               style={styles.compactSelect}
@@ -353,7 +371,9 @@ export default function AdminDashboardPage() {
             style={styles.logInput}
           />
           <span style={styles.logCount}>
-            {filteredLogs.length} shown {copyStatus ? `- ${copyStatus}` : ''}
+            {filteredLogs.length} shown of {logTotal}
+            {logHasMore ? ` - limited to ${logLimit}` : ''}
+            {copyStatus ? ` - ${copyStatus}` : ''}
           </span>
         </div>
 
