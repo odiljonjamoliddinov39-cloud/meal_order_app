@@ -15,6 +15,22 @@ function safeTrim(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function safeHeaderValue(value) {
+  return String(value || '')
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+}
+
+function addHeader(headers, name, value) {
+  const safeValue = safeHeaderValue(value);
+  if (safeValue) {
+    headers[name] = safeValue;
+  }
+}
+
 export function getTelegramDisplayName(user) {
   if (!user) return '';
 
@@ -155,13 +171,15 @@ export async function getRequestTelegramUser() {
 export function getTelegramHeaders(user) {
   if (!user || !user.id) return {};
 
-  return {
-    'x-telegram-user-id': String(user.id),
-    'x-telegram-user-name': getTelegramDisplayName(user) || 'Telegram User',
-    'x-telegram-first-name': user.first_name || '',
-    'x-telegram-last-name': user.last_name || '',
-    'x-telegram-username': user.username || '',
+  const headers = {
+    'x-telegram-user-id': String(user.id).replace(/[^\d]/g, ''),
   };
+
+  addHeader(headers, 'x-telegram-username', user.username);
+  addHeader(headers, 'x-telegram-first-name', user.first_name);
+  addHeader(headers, 'x-telegram-last-name', user.last_name);
+
+  return headers;
 }
 
 export function initTelegramWebApp() {
