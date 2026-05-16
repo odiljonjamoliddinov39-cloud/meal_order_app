@@ -4,8 +4,11 @@ import cors from 'cors';
 import customerRoutes from './routes/customerRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { warmMenuCache } from './controllers/customerController.js';
+import { installConsoleDiagnostics, recordRequestLog } from './lib/diagnostics.js';
 
 const app = express();
+
+installConsoleDiagnostics();
 
 function normalizeMiniAppUrl(value) {
   const rawUrl = String(value || '').trim();
@@ -77,6 +80,8 @@ app.use((req, res, next) => {
         `${res.statusCode} ${durationMs}ms ` +
         `origin=${origin} tgId=${telegramUserId} tgName=${telegramName}`
     );
+
+    recordRequestLog(req, res, durationMs);
   });
 
   next();
