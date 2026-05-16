@@ -110,7 +110,7 @@ export function installConsoleDiagnostics(consoleObject = console) {
 }
 
 export async function getDiagnostics(options = {}) {
-  const limit = Math.max(1, Math.min(Number(options.limit) || 120, 1000));
+  const limit = Math.max(1, Math.min(Number(options.limit) || 500, 5000));
   const since = options.since ? new Date(options.since) : null;
   const where = {};
 
@@ -137,25 +137,33 @@ export async function getDiagnostics(options = {}) {
     ];
   }
 
-  const rows = await prisma.diagnosticLog.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-  });
+  const [rows, total] = await Promise.all([
+    prisma.diagnosticLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    }),
+    prisma.diagnosticLog.count({ where }),
+  ]);
 
-  return rows.map((row) => ({
-    id: row.id,
-    time: row.createdAt.toISOString(),
-    level: row.level,
-    source: row.source,
-    method: row.method,
-    path: row.path,
-    status: row.status,
-    durationMs: row.durationMs,
-    origin: row.origin || '',
-    telegramUserId: row.telegramUserId || '',
-    message: row.message,
-  }));
+  return {
+    logs: rows.map((row) => ({
+      id: row.id,
+      time: row.createdAt.toISOString(),
+      level: row.level,
+      source: row.source,
+      method: row.method,
+      path: row.path,
+      status: row.status,
+      durationMs: row.durationMs,
+      origin: row.origin || '',
+      telegramUserId: row.telegramUserId || '',
+      message: row.message,
+    })),
+    total,
+    limit,
+    hasMore: total > rows.length,
+  };
 }
 
 export async function clearDiagnostics() {
