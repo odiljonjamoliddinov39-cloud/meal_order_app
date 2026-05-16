@@ -7,6 +7,11 @@ export default function AdminDashboardPage() {
   const [orders, setOrders] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logFilter, setLogFilter] = useState('all');
+  const [logSourceFilter, setLogSourceFilter] = useState('all');
+  const [logRange, setLogRange] = useState('24h');
+  const [logSearch, setLogSearch] = useState('');
+  const [logTelegramId, setLogTelegramId] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [dayForm, setDayForm] = useState({ date: '' });
@@ -44,7 +49,17 @@ export default function AdminDashboardPage() {
 
   const fetchLogs = async () => {
     try {
-      const res = await api.get('/admin/diagnostics?limit=160');
+      const params = new URLSearchParams({
+        limit: '500',
+        range: logRange,
+        level: logFilter,
+        source: logSourceFilter,
+      });
+
+      if (logSearch.trim()) params.set('search', logSearch.trim());
+      if (logTelegramId.trim()) params.set('telegramUserId', logTelegramId.trim());
+
+      const res = await api.get(`/admin/diagnostics?${params.toString()}`);
       setLogs(Array.isArray(res.data?.logs) ? res.data.logs : []);
     } catch (error) {
       console.error('ADMIN LOGS FETCH ERROR:', error?.response?.data || error.message);
@@ -80,9 +95,52 @@ export default function AdminDashboardPage() {
   }, [days]);
 
   const filteredLogs = useMemo(() => {
-    if (logFilter === 'all') return logs;
-    return logs.filter((log) => log.level === logFilter || log.source === logFilter);
-  }, [logs, logFilter]);
+    return logs;
+  }, [logs]);
+
+  const formatLogLine = (log) => {
+    const time = log.time ? new Date(log.time).toLocaleString() : '-';
+    const meta = [
+      time,
+      (log.level || 'info').toUpperCase(),
+      log.source || '-',
+      log.status || '',
+      log.telegramUserId ? `tg:${log.telegramUserId}` : '',
+    ].filter(Boolean).join(' | ');
+
+    return `${meta}\n${log.message || log.path || '-'}\n`;
+  };
+
+  const copyVisibleLogs = async () => {
+    const text = filteredLogs.map(formatLogLine).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text || 'No logs visible.');
+      setCopyStatus('Copied visible logs');
+    } catch {
+      setCopyStatus('Copy failed');
+    }
+  };
+
+  const exportVisibleLogs = () => {
+    const rows = filteredLogs.map((log) => ({
+      time: log.time || '',
+      level: log.level || '',
+      source: log.source || '',
+      method: log.method || '',
+      path: log.path || '',
+      status: log.status || '',
+      durationMs: log.durationMs || '',
+      telegramUserId: log.telegramUserId || '',
+      message: log.message || '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Logs');
+    XLSX.writeFile(workbook, 'diagnostic-logs.xlsx');
+  };
 
   const createDay = async (e) => {
     e.preventDefault();
@@ -227,11 +285,22 @@ export default function AdminDashboardPage() {
           <div>
             <h2 style={styles.sectionTitle}>Live Logs</h2>
             <p style={styles.sectionSubtitle}>
-              Recent backend requests and server errors from this running Railway instance.
+              Backend requests and server errors saved in the database for recent review.
             </p>
           </div>
 
           <div style={styles.logActions}>
+            <select
+              value={logRange}
+              onChange={(e) => setLogRange(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="1h">Past hour</option>
+              <option value="24h">Past day</option>
+              <option value="7d">Past week</option>
+              <option value="30d">Past month</option>
+            </select>
+
             <select
               value={logFilter}
               onChange={(e) => setLogFilter(e.target.value)}
@@ -240,17 +309,52 @@ export default function AdminDashboardPage() {
               <option value="all">All</option>
               <option value="error">Errors</option>
               <option value="warn">Warnings</option>
+              <option value="info">Info</option>
+            </select>
+
+            <select
+              value={logSourceFilter}
+              onChange={(e) => setLogSourceFilter(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="all">All sources</option>
               <option value="request">Requests</option>
               <option value="server">Server</option>
             </select>
 
             <button onClick={fetchLogs} style={styles.primaryButtonSmall}>
-              Refresh Logs
+              Apply
+            </button>
+            <button onClick={copyVisibleLogs} style={styles.primaryButtonSmall}>
+              Copy Visible
+            </button>
+            <button onClick={exportVisibleLogs} style={styles.primaryButtonSmall}>
+              Export XLS
             </button>
             <button onClick={clearLogs} style={styles.smallDangerButton}>
               Clear Logs
             </button>
           </div>
+        </div>
+
+        <div style={styles.logSearchRow}>
+          <input
+            type="text"
+            value={logSearch}
+            onChange={(e) => setLogSearch(e.target.value)}
+            placeholder="Search message or path"
+            style={styles.logInput}
+          />
+          <input
+            type="text"
+            value={logTelegramId}
+            onChange={(e) => setLogTelegramId(e.target.value)}
+            placeholder="Telegram ID"
+            style={styles.logInput}
+          />
+          <span style={styles.logCount}>
+            {filteredLogs.length} shown {copyStatus ? `- ${copyStatus}` : ''}
+          </span>
         </div>
 
         <div style={styles.logPanel}>
@@ -688,6 +792,29 @@ const styles = {
     background: '#ffffff',
     color: '#16324f',
     fontWeight: 700,
+  },
+  logSearchRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '10px',
+    alignItems: 'center',
+    marginBottom: '10px',
+  },
+  logInput: {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '10px',
+    border: '1px solid #d9e4f1',
+    background: '#ffffff',
+    color: '#16324f',
+    boxSizing: 'border-box',
+    fontSize: '13px',
+  },
+  logCount: {
+    color: '#5b708a',
+    fontSize: '13px',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
   },
   logPanel: {
     background: '#0f1c2e',
