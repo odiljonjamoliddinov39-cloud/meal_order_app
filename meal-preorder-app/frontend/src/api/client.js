@@ -40,6 +40,8 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
   const requestUrl = String(config.url || '');
   const isAdminRequest = requestUrl.startsWith('/admin');
+  const isMenuReadRequest =
+    config.method?.toLowerCase() === 'get' && requestUrl.startsWith('/menu');
 
   config.headers = config.headers || {};
 
@@ -48,7 +50,7 @@ api.interceptors.request.use(async (config) => {
     config.headers.pragma = 'no-cache';
   }
 
-  if (!isAdminRequest) {
+  if (!isAdminRequest && !isMenuReadRequest) {
     const telegramUser = await getRequestTelegramUser();
     Object.assign(config.headers, getTelegramHeaders(telegramUser));
   }
