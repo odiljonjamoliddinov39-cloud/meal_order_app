@@ -288,16 +288,19 @@ export const getAdminDiagnostics = async (req, res) => {
     '30d': 30 * 24 * 60 * 60 * 1000,
   }[range] || 24 * 60 * 60 * 1000;
   const since = req.query.since || new Date(now - rangeMs).toISOString();
+  const diagnostics = await getDiagnostics({
+    limit: req.query.limit || 500,
+    since,
+    level: req.query.level || 'all',
+    source: req.query.source || 'all',
+    telegramUserId: req.query.telegramUserId || '',
+    search: req.query.search || '',
+  });
 
   return res.json({
-    logs: await getDiagnostics({
-      limit: req.query.limit || 160,
-      since,
-      level: req.query.level || 'all',
-      source: req.query.source || 'all',
-      telegramUserId: req.query.telegramUserId || '',
-      search: req.query.search || '',
-    }),
+    ...diagnostics,
+    range,
+    since,
   });
 };
 
