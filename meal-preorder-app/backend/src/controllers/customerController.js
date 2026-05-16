@@ -391,8 +391,18 @@ export const createOrder = async (req, res) => {
       order: serializeOrder(result),
     });
   } catch (error) {
-    console.error('createOrder error:', error);
-    return res.status(400).json({ message: error.message || 'Failed to create order' });
+    const message = error.message || 'Failed to create order';
+    const expectedOrderError =
+      message === 'Order items are required' ||
+      message === 'No valid items in order' ||
+      message === 'All order items must be from the same menu day' ||
+      message.startsWith('Not enough quantity for ');
+
+    if (!expectedOrderError) {
+      console.error('createOrder error:', error);
+    }
+
+    return res.status(400).json({ message });
   }
 };
 
