@@ -279,14 +279,30 @@ export const getAdminSummary = async (req, res) => {
 };
 
 export const getAdminDiagnostics = async (req, res) => {
-  const limit = req.query.limit || 120;
+  const now = Date.now();
+  const range = String(req.query.range || '24h');
+  const rangeMs = {
+    '1h': 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+    '30d': 30 * 24 * 60 * 60 * 1000,
+  }[range] || 24 * 60 * 60 * 1000;
+  const since = req.query.since || new Date(now - rangeMs).toISOString();
+
   return res.json({
-    logs: getDiagnostics(limit),
+    logs: await getDiagnostics({
+      limit: req.query.limit || 160,
+      since,
+      level: req.query.level || 'all',
+      source: req.query.source || 'all',
+      telegramUserId: req.query.telegramUserId || '',
+      search: req.query.search || '',
+    }),
   });
 };
 
 export const clearAdminDiagnostics = async (req, res) => {
-  clearDiagnostics();
+  await clearDiagnostics();
   return res.json({ message: 'Diagnostics cleared' });
 };
 
