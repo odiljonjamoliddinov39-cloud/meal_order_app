@@ -1,6 +1,9 @@
+import { prisma } from './prisma.js';
+
 const MAX_EVENTS = 300;
 const events = [];
 let installed = false;
+let lastPruneAt = 0;
 
 function sanitizeText(value) {
   return String(value || '')
@@ -25,14 +28,46 @@ function serializeArg(arg) {
 }
 
 function pushEvent(event) {
-  events.unshift({
+  const entry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     time: new Date().toISOString(),
     ...event,
-  });
+  };
+
+  events.unshift(entry);
 
   if (events.length > MAX_EVENTS) {
     events.length = MAX_EVENTS;
+  }
+
+  persistEvent(entry);
+}
+
+function persistEvent(entry) {
+  prisma.diagnosticLog.create({
+    data: {
+      level: entry.level || 'info',
+      source: entry.source || 'server',
+      method: entry.method || null,
+      path: entry.path || null,
+      status: entry.status || null,
+      durationMs: entry.durationMs == null ? null : Number(entry.durationMs),
+      origin: entry.origin || null,
+      telegramUserId: entry.telegramUserId || null,
+      message: sanitizeText(entry.message || entry.path || '-'),
+      createdAt: new Date(entry.time),
+    },
+  }).catch(() => {
+    // Diagnostics must never break the app path that produced them.
+  });
+
+  const now = Date.now();
+  if (now - lastPruneAt > 60 * 60 * 1000) {
+    lastPruneAt = now;
+    const cutoff = new Date(now - 35 * 24 * 60 * 60 * 1000);
+    prisma.diagnosticLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    }).catch(() => {});
   }
 }
 
@@ -74,10 +109,56 @@ export function installConsoleDiagnostics(consoleObject = console) {
   };
 }
 
-export function getDiagnostics(limit = 120) {
-  return events.slice(0, Math.max(1, Math.min(Number(limit) || 120, MAX_EVENTS)));
+export async function getDiagnostics(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit) || 120, 1000));
+  const since = options.since ? new Date(options.since) : null;
+  const where = {};
+
+  if (since && !Number.isNaN(since.getTime())) {
+    where.createdAt = { gte: since };
+  }
+
+  if (options.level && options.level !== 'all') {
+    where.level = options.level;
+  }
+
+  if (options.source && options.source !== 'all') {
+    where.source = options.source;
+  }
+
+  if (options.telegramUserId) {
+    where.telegramUserId = String(options.telegramUserId);
+  }
+
+  if (options.search) {
+    where.OR = [
+      { message: { contains: String(options.search), mode: 'insensitive' } },
+      { path: { contains: String(options.search), mode: 'insensitive' } },
+    ];
+  }
+
+  const rows = await prisma.diagnosticLog.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    time: row.createdAt.toISOString(),
+    level: row.level,
+    source: row.source,
+    method: row.method,
+    path: row.path,
+    status: row.status,
+    durationMs: row.durationMs,
+    origin: row.origin || '',
+    telegramUserId: row.telegramUserId || '',
+    message: row.message,
+  }));
 }
 
-export function clearDiagnostics() {
+export async function clearDiagnostics() {
   events.length = 0;
+  await prisma.diagnosticLog.deleteMany({});
 }
