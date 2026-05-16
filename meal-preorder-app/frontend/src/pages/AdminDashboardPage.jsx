@@ -5,6 +5,8 @@ import api from '../api/client.js';
 export default function AdminDashboardPage() {
   const [days, setDays] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [logFilter, setLogFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
   const [dayForm, setDayForm] = useState({ date: '' });
@@ -40,8 +42,27 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchLogs = async () => {
+    try {
+      const res = await api.get('/admin/diagnostics?limit=160');
+      setLogs(Array.isArray(res.data?.logs) ? res.data.logs : []);
+    } catch (error) {
+      console.error('ADMIN LOGS FETCH ERROR:', error?.response?.data || error.message);
+    }
+  };
+
+  const clearLogs = async () => {
+    try {
+      await api.delete('/admin/diagnostics');
+      setLogs([]);
+    } catch (error) {
+      console.error('ADMIN LOGS CLEAR ERROR:', error?.response?.data || error.message);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchLogs();
   }, []);
 
   const totalOrders = orders.length;
@@ -57,6 +78,11 @@ export default function AdminDashboardPage() {
   const sortedMenuDays = useMemo(() => {
     return [...days].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   }, [days]);
+
+  const filteredLogs = useMemo(() => {
+    if (logFilter === 'all') return logs;
+    return logs.filter((log) => log.level === logFilter || log.source === logFilter);
+  }, [logs, logFilter]);
 
   const createDay = async (e) => {
     e.preventDefault();
@@ -181,12 +207,72 @@ export default function AdminDashboardPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={fetchData} style={styles.primaryButton}>
+          <button
+            onClick={() => {
+              fetchData();
+              fetchLogs();
+            }}
+            style={styles.primaryButton}
+          >
             Refresh
           </button>
           <button onClick={exportOrdersXLS} style={styles.primaryButton}>
             Download XLS
           </button>
+        </div>
+      </div>
+
+      <div style={styles.section}>
+        <div style={styles.sectionHeader}>
+          <div>
+            <h2 style={styles.sectionTitle}>Live Logs</h2>
+            <p style={styles.sectionSubtitle}>
+              Recent backend requests and server errors from this running Railway instance.
+            </p>
+          </div>
+
+          <div style={styles.logActions}>
+            <select
+              value={logFilter}
+              onChange={(e) => setLogFilter(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="all">All</option>
+              <option value="error">Errors</option>
+              <option value="warn">Warnings</option>
+              <option value="request">Requests</option>
+              <option value="server">Server</option>
+            </select>
+
+            <button onClick={fetchLogs} style={styles.primaryButtonSmall}>
+              Refresh Logs
+            </button>
+            <button onClick={clearLogs} style={styles.smallDangerButton}>
+              Clear Logs
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.logPanel}>
+          {filteredLogs.length === 0 ? (
+            <div style={styles.emptyLog}>No logs captured yet.</div>
+          ) : (
+            filteredLogs.map((log) => (
+              <div key={log.id} style={styles.logRow}>
+                <div style={styles.logMeta}>
+                  <span style={{ ...styles.logBadge, ...styles[`logBadge_${log.level}`] }}>
+                    {log.level || 'info'}
+                  </span>
+                  <span>{log.source || '-'}</span>
+                  <span>{log.time ? new Date(log.time).toLocaleString() : '-'}</span>
+                  {log.status ? <span>{log.status}</span> : null}
+                  {log.telegramUserId ? <span>tg:{log.telegramUserId}</span> : null}
+                </div>
+
+                <pre style={styles.logMessage}>{log.message || log.path || '-'}</pre>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -572,9 +658,89 @@ const styles = {
   section: {
     marginBottom: '24px',
   },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '14px',
+    flexWrap: 'wrap',
+    marginBottom: '14px',
+  },
   sectionTitle: {
     fontSize: '24px',
-    marginBottom: '14px',
+    margin: 0,
+  },
+  sectionSubtitle: {
+    margin: '6px 0 0 0',
+    color: '#5b708a',
+    fontSize: '13px',
+  },
+  logActions: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  compactSelect: {
+    padding: '9px 12px',
+    borderRadius: '10px',
+    border: '1px solid #d9e4f1',
+    background: '#ffffff',
+    color: '#16324f',
+    fontWeight: 700,
+  },
+  logPanel: {
+    background: '#0f1c2e',
+    borderRadius: '18px',
+    padding: '12px',
+    color: '#d7e5f8',
+    maxHeight: '360px',
+    overflowY: 'auto',
+    boxShadow: '0 10px 24px rgba(0,0,0,0.10)',
+  },
+  logRow: {
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    padding: '10px 4px',
+  },
+  logMeta: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    color: '#9fb4cd',
+    fontSize: '12px',
+    marginBottom: '6px',
+  },
+  logBadge: {
+    borderRadius: '999px',
+    padding: '3px 8px',
+    color: '#ffffff',
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    fontSize: '11px',
+    background: '#52708f',
+  },
+  logBadge_info: {
+    background: '#2b8be8',
+  },
+  logBadge_warn: {
+    background: '#d98b14',
+  },
+  logBadge_error: {
+    background: '#e5484d',
+  },
+  logMessage: {
+    margin: 0,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    fontSize: '12px',
+    lineHeight: 1.45,
+  },
+  emptyLog: {
+    color: '#9fb4cd',
+    padding: '18px',
+    textAlign: 'center',
   },
   cardsGrid: {
     display: 'grid',
