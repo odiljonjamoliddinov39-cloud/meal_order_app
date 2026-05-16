@@ -159,6 +159,15 @@ app.post('/telegram/webhook/:secret', async (req, res) => {
 app.use('/api', customerRoutes);
 app.use('/api', adminRoutes);
 
+app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && 'body' in error) {
+    return res.status(400).json({ message: 'Invalid JSON request body' });
+  }
+
+  console.error('Unhandled request error:', error);
+  return res.status(500).json({ message: 'Internal server error' });
+});
+
 const ports = Array.from(new Set([
   Number(process.env.PORT || 4000),
   8080,
