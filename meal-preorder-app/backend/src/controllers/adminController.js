@@ -1,5 +1,23 @@
 import { prisma } from '../lib/prisma.js';
 import { clearDiagnostics, getDiagnostics } from '../lib/diagnostics.js';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || process.env.ADMIN_SEED_EMAIL || '';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.ADMIN_SEED_PASSWORD || '';
+const JWT_SECRET = process.env.JWT_SECRET || '';
+
+const safeEqual = (left, right) => {
+  const leftBuffer = Buffer.from(String(left || ''));
+  const rightBuffer = Buffer.from(String(right || ''));
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    crypto.timingSafeEqual(leftBuffer, leftBuffer);
+    return false;
+  }
+
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
 
 const getUserDisplayName = (user) => {
   const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
@@ -57,6 +75,32 @@ const orderInclude = {
   items: {
     include: { menuItem: true },
   },
+};
+
+export const loginAdmin = async (req, res) => {
+  const username = String(req.body?.username || req.body?.email || '').trim();
+  const password = String(req.body?.password || '');
+
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD || !JWT_SECRET) {
+    console.error('Admin login is not configured');
+    return res.status(500).json({ message: 'Admin login is not configured' });
+  }
+
+  if (!safeEqual(username, ADMIN_USERNAME) || !safeEqual(password, ADMIN_PASSWORD)) {
+    return res.status(401).json({ message: 'Invalid login or password' });
+  }
+
+  const token = jwt.sign(
+    {
+      sub: 'admin',
+      role: 'ADMIN',
+      username: ADMIN_USERNAME,
+    },
+    JWT_SECRET,
+    { expiresIn: '12h' }
+  );
+
+  return res.json({ token });
 };
 
 const applyOrderInventoryDelta = async (tx, items, multiplier) => {
@@ -313,9 +357,44 @@ export const deleteAdminMenuDay = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.menuDay.delete({
-      where: { id },
+    const day = await prisma.$transaction(async (tx) => {
+      const existingDay = await tx.menuDay.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+
+      if (!existingDay) return null;
+
+      const items = await tx.menuItem.findMany({
+        where: { menuDayId: id },
+        select: { id: true },
+      });
+      const itemIds = items.map((item) => item.id);
+
+      if (itemIds.length > 0) {
+        await tx.orderItem.deleteMany({
+          where: { menuItemId: { in: itemIds } },
+        });
+      }
+
+      await tx.order.deleteMany({
+        where: { menuDayId: id },
+      });
+
+      await tx.menuItem.deleteMany({
+        where: { menuDayId: id },
+      });
+
+      await tx.menuDay.delete({
+        where: { id },
+      });
+
+      return existingDay;
     });
+
+    if (!day) {
+      return res.status(404).json({ message: 'Menu day not found' });
+    }
 
     return res.json({ message: 'Menu day deleted' });
   } catch (error) {
