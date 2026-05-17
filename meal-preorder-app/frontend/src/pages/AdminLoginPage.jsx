@@ -6,7 +6,7 @@ export default function AdminLoginPage() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    email: 'admin@example.com',
+    username: '',
     password: '',
   });
   const [error, setError] = useState('');
@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
 
     try {
       const payload = {
-        email: form.email,
+        username: form.username,
         password: form.password,
       };
 
@@ -93,16 +93,16 @@ export default function AdminLoginPage() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '14px' }}>
             <label
-              htmlFor="email"
+              htmlFor="username"
               style={{ display: 'block', marginBottom: '6px' }}
             >
-              Email
+              Login
             </label>
             <input
-              id="email"
-              type="email"
-              name="email"
-              value={form.email}
+              id="username"
+              type="text"
+              name="username"
+              value={form.username}
               onChange={handleChange}
               autoComplete="username"
               required
