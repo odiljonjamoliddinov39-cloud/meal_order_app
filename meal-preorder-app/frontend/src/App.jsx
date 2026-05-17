@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
+import AdminLoginPage from './pages/AdminLoginPage.jsx';
 
 function RootRedirect() {
   const location = useLocation();
@@ -34,6 +35,8 @@ export default function App() {
         <Route index element={<AdminDashboardPage />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
       </Route>
+
+      <Route path="/admin/login" element={<AdminLoginPage />} />
 
       <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<div><h2>Page not found</h2></div>} />
