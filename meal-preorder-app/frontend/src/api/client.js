@@ -40,6 +40,7 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
   const requestUrl = String(config.url || '');
   const isAdminRequest = requestUrl.startsWith('/admin');
+  const isAdminLoginRequest = requestUrl === '/admin/login';
   const isMenuReadRequest =
     config.method?.toLowerCase() === 'get' && requestUrl.startsWith('/menu');
 
@@ -50,6 +51,14 @@ api.interceptors.request.use(async (config) => {
     config.headers.pragma = 'no-cache';
   }
 
+  if (isAdminRequest && !isAdminLoginRequest) {
+    const token = localStorage.getItem('adminToken');
+
+    if (token) {
+      config.headers.authorization = `Bearer ${token}`;
+    }
+  }
+
   if (!isAdminRequest && !isMenuReadRequest) {
     const telegramUser = await getRequestTelegramUser();
     Object.assign(config.headers, getTelegramHeaders(telegramUser));
@@ -57,5 +66,26 @@ api.interceptors.request.use(async (config) => {
 
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const requestUrl = String(error?.config?.url || '');
+
+    if (
+      error?.response?.status === 401 &&
+      requestUrl.startsWith('/admin') &&
+      requestUrl !== '/admin/login'
+    ) {
+      localStorage.removeItem('adminToken');
+
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/admin/login')) {
+        window.location.assign('/admin/login');
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default api;
