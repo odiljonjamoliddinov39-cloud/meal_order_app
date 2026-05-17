@@ -1,6 +1,7 @@
 import express from 'express';
 
 import {
+  loginAdmin,
   getAdminMenuDays,
   createAdminMenuDay,
   createAdminMenuItem,
@@ -14,8 +15,12 @@ import {
   getAdminDiagnostics,
   clearAdminDiagnostics,
 } from '../controllers/adminController.js';
+import { requireAdminAuth } from '../middleware/requireAdminAuth.js';
 
 const router = express.Router();
+
+router.post('/admin/login', loginAdmin);
+router.use('/admin', requireAdminAuth);
 
 router.get('/admin/menu/days', getAdminMenuDays);
 router.post('/admin/menu/days', createAdminMenuDay);
