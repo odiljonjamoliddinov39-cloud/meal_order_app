@@ -145,7 +145,6 @@ export const getAdminMenuDays = async (req, res) => {
       where: { isOpen: true },
       include: {
         items: {
-          where: { isActive: true },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -267,14 +266,49 @@ export const deleteAdminMenuItem = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.menuItem.update({
-      where: { id },
-      data: { isActive: false },
+    const result = await prisma.$transaction(async (tx) => {
+      const item = await tx.menuItem.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+
+      if (!item) return null;
+
+      const orderItemsCount = await tx.orderItem.count({
+        where: { menuItemId: id },
+      });
+
+      if (orderItemsCount > 0) {
+        await tx.menuItem.update({
+          where: { id },
+          data: { isActive: false },
+        });
+
+        return { mode: 'disabled' };
+      }
+
+      await tx.menuItem.delete({
+        where: { id },
+      });
+
+      return { mode: 'deleted' };
     });
 
-    return res.json({ message: 'Menu item disabled' });
+    if (!result) {
+      return res.status(404).json({ message: 'Menu item not found' });
+    }
+
+    return res.json({
+      message: result.mode === 'disabled'
+        ? 'Menu item disabled because it has order history'
+        : 'Menu item deleted',
+    });
   } catch (error) {
     console.error('deleteAdminMenuItem error:', error);
+    if (isRecordNotFound(error)) {
+      return res.status(404).json({ message: 'Menu item not found' });
+    }
+
     return res.status(500).json({ message: 'Failed to delete menu item' });
   }
 };
