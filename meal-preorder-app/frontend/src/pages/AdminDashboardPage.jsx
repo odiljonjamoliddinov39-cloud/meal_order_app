@@ -16,6 +16,8 @@ export default function AdminDashboardPage() {
   const [logTelegramId, setLogTelegramId] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const [adminMessage, setAdminMessage] = useState('');
+  const [adminBusyKey, setAdminBusyKey] = useState('');
 
   const [dayForm, setDayForm] = useState({ date: '' });
 
@@ -45,6 +47,7 @@ export default function AdminDashboardPage() {
       setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
     } catch (error) {
       console.error('ADMIN FETCH ERROR:', error?.response?.data || error.message);
+      setAdminMessage(error?.response?.data?.message || 'Failed to load admin data');
     } finally {
       setLoading(false);
     }
@@ -187,29 +190,62 @@ export default function AdminDashboardPage() {
   };
 
   const deleteDay = async (dayId) => {
+    const day = days.find((item) => item.id === dayId);
+    const label = day?.date || 'this day';
+
+    if (!window.confirm(`Delete menu day ${label}? This only works when the day has no orders.`)) {
+      return;
+    }
+
     try {
+      setAdminBusyKey(`day:${dayId}`);
+      setAdminMessage('');
       await api.delete(`/admin/menu/days/${dayId}`);
+      setAdminMessage('Menu day deleted');
       await fetchData();
     } catch (error) {
       console.error('DELETE DAY ERROR:', error?.response?.data || error.message);
+      setAdminMessage(error?.response?.data?.message || 'Failed to delete menu day');
+    } finally {
+      setAdminBusyKey('');
     }
   };
 
   const deleteItem = async (dayId, itemId) => {
+    if (!window.confirm('Disable this menu item? Existing orders will stay safe.')) {
+      return;
+    }
+
     try {
+      setAdminBusyKey(`item:${itemId}`);
+      setAdminMessage('');
       await api.delete(`/admin/menu/items/${itemId}`);
+      setAdminMessage('Menu item disabled');
       await fetchData();
     } catch (error) {
       console.error('DELETE ITEM ERROR:', error?.response?.data || error.message);
+      setAdminMessage(error?.response?.data?.message || 'Failed to delete menu item');
+    } finally {
+      setAdminBusyKey('');
     }
   };
 
   const deleteOrder = async (orderId) => {
+    if (!window.confirm('Delete this order? Item availability will be restored.')) {
+      return;
+    }
+
     try {
+      setAdminBusyKey(`order:${orderId}`);
+      setAdminMessage('');
       await api.delete(`/admin/orders/${orderId}`);
+      setAdminMessage('Order deleted');
       await fetchData();
     } catch (error) {
       console.error('DELETE ORDER ERROR:', error?.response?.data || error.message);
+      setAdminMessage(error?.response?.data?.message || 'Failed to delete order');
+    } finally {
+      setAdminBusyKey('');
     }
   };
 
@@ -286,6 +322,12 @@ export default function AdminDashboardPage() {
           </button>
         </div>
       </div>
+
+      {adminMessage ? (
+        <div style={styles.adminNotice}>
+          {adminMessage}
+        </div>
+      ) : null}
 
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
@@ -526,10 +568,12 @@ export default function AdminDashboardPage() {
                 <div style={styles.cardTop}>
                   <strong style={styles.cardTitle}>{day.date}</strong>
                   <button
+                    type="button"
                     onClick={() => deleteDay(day.id)}
+                    disabled={adminBusyKey === `day:${day.id}`}
                     style={styles.dangerButton}
                   >
-                    Delete Day
+                    {adminBusyKey === `day:${day.id}` ? 'Deleting...' : 'Delete Day'}
                   </button>
                 </div>
 
@@ -547,10 +591,12 @@ export default function AdminDashboardPage() {
                         <div style={styles.itemActions}>
                           <span>{item.price}</span>
                           <button
+                            type="button"
                             onClick={() => deleteItem(day.id, item.id)}
+                            disabled={adminBusyKey === `item:${item.id}`}
                             style={styles.smallDangerButton}
                           >
-                            Delete Item
+                            {adminBusyKey === `item:${item.id}` ? 'Deleting...' : 'Delete Item'}
                           </button>
                         </div>
                       </div>
@@ -579,6 +625,7 @@ export default function AdminDashboardPage() {
 
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button
+                      type="button"
                       onClick={() => startEditOrder(order)}
                       style={styles.primaryButtonSmall}
                     >
@@ -586,10 +633,12 @@ export default function AdminDashboardPage() {
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => deleteOrder(order.id)}
+                      disabled={adminBusyKey === `order:${order.id}`}
                       style={styles.dangerButton}
                     >
-                      Delete
+                      {adminBusyKey === `order:${order.id}` ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </div>
@@ -679,6 +728,16 @@ const styles = {
   subtitle: {
     margin: '6px 0 0 0',
     color: '#5b708a',
+  },
+  adminNotice: {
+    background: '#ffffff',
+    color: '#16324f',
+    border: '1px solid #d9e4f1',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    marginBottom: '16px',
+    fontWeight: 700,
+    boxShadow: '0 8px 18px rgba(0,0,0,0.05)',
   },
   statsGrid: {
     display: 'grid',
