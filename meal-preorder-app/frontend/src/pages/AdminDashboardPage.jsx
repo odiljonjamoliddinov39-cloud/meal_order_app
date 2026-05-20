@@ -230,6 +230,21 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const restoreItem = async (itemId) => {
+    try {
+      setAdminBusyKey(`item:${itemId}`);
+      setAdminMessage('');
+      await api.patch(`/admin/menu/items/${itemId}`, { isActive: true });
+      setAdminMessage('Menu item restored');
+      await fetchData();
+    } catch (error) {
+      console.error('RESTORE ITEM ERROR:', error?.response?.data || error.message);
+      setAdminMessage(error?.response?.data?.message || 'Failed to restore menu item');
+    } finally {
+      setAdminBusyKey('');
+    }
+  };
+
   const deleteOrder = async (orderId) => {
     if (!window.confirm('Delete this order? Item availability will be restored.')) {
       return;
@@ -586,18 +601,32 @@ export default function AdminDashboardPage() {
                         <div>
                           {item.name}{' '}
                           <span style={styles.typeBadge}>({item.type || 'meal'})</span>
+                          {!item.isActive ? (
+                            <span style={styles.inactiveBadge}>Disabled</span>
+                          ) : null}
                         </div>
 
                         <div style={styles.itemActions}>
                           <span>{item.price}</span>
-                          <button
-                            type="button"
-                            onClick={() => deleteItem(day.id, item.id)}
-                            disabled={adminBusyKey === `item:${item.id}`}
-                            style={styles.smallDangerButton}
-                          >
-                            {adminBusyKey === `item:${item.id}` ? 'Deleting...' : 'Delete Item'}
-                          </button>
+                          {item.isActive ? (
+                            <button
+                              type="button"
+                              onClick={() => deleteItem(day.id, item.id)}
+                              disabled={adminBusyKey === `item:${item.id}`}
+                              style={styles.smallDangerButton}
+                            >
+                              {adminBusyKey === `item:${item.id}` ? 'Deleting...' : 'Delete Item'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => restoreItem(item.id)}
+                              disabled={adminBusyKey === `item:${item.id}`}
+                              style={styles.primaryButtonSmall}
+                            >
+                              {adminBusyKey === `item:${item.id}` ? 'Restoring...' : 'Restore'}
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -1000,6 +1029,16 @@ const styles = {
   },
   typeBadge: {
     color: '#5b708a',
+  },
+  inactiveBadge: {
+    display: 'inline-block',
+    marginLeft: '8px',
+    color: '#8a4b00',
+    background: '#fff0cf',
+    borderRadius: '999px',
+    padding: '3px 8px',
+    fontSize: '11px',
+    fontWeight: 800,
   },
   emptyText: {
     margin: 0,
