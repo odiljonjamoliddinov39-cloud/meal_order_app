@@ -193,7 +193,7 @@ export default function AdminDashboardPage() {
     const day = days.find((item) => item.id === dayId);
     const label = day?.date || 'this day';
 
-    if (!window.confirm(`Delete menu day ${label}? This only works when the day has no orders.`)) {
+    if (!window.confirm(`Remove menu day ${label} from the active menu? Existing orders stay safe.`)) {
       return;
     }
 
