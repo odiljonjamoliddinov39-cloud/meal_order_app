@@ -16,6 +16,7 @@ const labels = {
     authRequired: 'Open this menu from Telegram to load your account',
     noDays: 'No menu day found',
     noItems: 'No active items for this day',
+    all: 'All',
     meal: 'Meal',
     coffee: 'Coffee',
     drinks: 'Drinks',
@@ -37,6 +38,7 @@ const labels = {
     authRequired: 'Open this menu from Telegram to load your account',
     noDays: 'No menu day found',
     noItems: 'No active items for this day',
+    all: 'All',
     meal: 'Food',
     coffee: 'Coffee',
     drinks: 'Drinks',
@@ -58,6 +60,7 @@ const labels = {
     authRequired: 'Akkauntingizni yuklash uchun menyuni Telegram orqali oching',
     noDays: 'Menyu kuni topilmadi',
     noItems: "Bu kunda faol mahsulot yo'q",
+    all: 'Hammasi',
     meal: 'Ovqat',
     coffee: 'Qahva',
     drinks: 'Ichimlik',
@@ -208,7 +211,7 @@ export default function HomePage() {
   const [selectedDate, setSelectedDate] = useState('');
   const [menuDayId, setMenuDayId] = useState('');
   const [items, setItems] = useState([]);
-  const [activeCategory, setActiveCategory] = useState('meal');
+  const [activeCategory, setActiveCategory] = useState('all');
   const [cart, setCart] = useState(readCart());
   const [loadingDays, setLoadingDays] = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -217,6 +220,7 @@ export default function HomePage() {
 
   const categories = useMemo(
     () => [
+      { key: 'all', label: l.all },
       { key: 'meal', label: l.meal },
       { key: 'coffee', label: l.coffee },
       { key: 'drinks', label: l.drinks },
@@ -310,18 +314,14 @@ export default function HomePage() {
         window.debugItems = activeItems;
 
         setActiveCategory((currentCategory) => {
+          if (currentCategory === 'all') return 'all';
+
           const hasCurrent = activeItems.some(
             (item) => detectCategory(item) === currentCategory
           );
           if (hasCurrent) return currentCategory;
 
-          if (activeItems.some((item) => detectCategory(item) === 'meal')) return 'meal';
-
-          return (
-            ['coffee', 'drinks', 'dessert'].find((category) =>
-              activeItems.some((item) => detectCategory(item) === category)
-            ) || 'meal'
-          );
+          return 'all';
         });
       } catch (err) {
         if (!mounted) return;
@@ -341,6 +341,7 @@ export default function HomePage() {
   }, [selectedDate, l.failed, l.authRequired, days]);
 
   const filteredItems = useMemo(() => {
+    if (activeCategory === 'all') return items;
     return items.filter((item) => detectCategory(item) === activeCategory);
   }, [items, activeCategory]);
 
@@ -419,7 +420,7 @@ export default function HomePage() {
 
     setSelectedDate(dateKey);
     setMenuDayId(day.id);
-    setActiveCategory('meal');
+    setActiveCategory('all');
 
     if (hasOtherDayItems || currentStored.length) {
       syncCart([]);
@@ -459,7 +460,8 @@ export default function HomePage() {
       <div style={styles.tabsWrap}>
         {categories.map((category) => {
           const active = activeCategory === category.key;
-          const hasItems = items.some((item) => detectCategory(item) === category.key);
+          const hasItems =
+            category.key === 'all' || items.some((item) => detectCategory(item) === category.key);
 
           return (
             <button
