@@ -142,8 +142,10 @@ const applyOrderInventoryDelta = async (tx, items, multiplier) => {
 export const getAdminMenuDays = async (req, res) => {
   try {
     const days = await prisma.menuDay.findMany({
+      where: { isOpen: true },
       include: {
         items: {
+          where: { isActive: true },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -370,9 +372,17 @@ export const deleteAdminMenuDay = async (req, res) => {
       });
 
       if (ordersCount > 0) {
-        const error = new Error('MENU_DAY_HAS_ORDERS');
-        error.statusCode = 409;
-        throw error;
+        await tx.menuItem.updateMany({
+          where: { menuDayId: id },
+          data: { isActive: false },
+        });
+
+        await tx.menuDay.update({
+          where: { id },
+          data: { isOpen: false },
+        });
+
+        return { ...existingDay, archived: true };
       }
 
       await tx.menuItem.deleteMany({
@@ -390,17 +400,15 @@ export const deleteAdminMenuDay = async (req, res) => {
       return res.status(404).json({ message: 'Menu day not found' });
     }
 
-    return res.json({ message: 'Menu day deleted' });
+    return res.json({
+      message: day.archived
+        ? 'Menu day archived because it has orders'
+        : 'Menu day deleted',
+    });
   } catch (error) {
     console.error('deleteAdminMenuDay error:', error);
     if (isRecordNotFound(error)) {
       return res.status(404).json({ message: 'Menu day not found' });
-    }
-
-    if (error?.statusCode === 409) {
-      return res.status(409).json({
-        message: 'This menu day has orders. Delete or cancel those orders first, then delete the day.',
-      });
     }
 
     return res.status(500).json({ message: 'Failed to delete menu day' });
