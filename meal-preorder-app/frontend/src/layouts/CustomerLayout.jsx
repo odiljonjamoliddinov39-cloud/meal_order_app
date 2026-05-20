@@ -252,15 +252,15 @@ const styles = {
     background: 'linear-gradient(180deg, #8be9ea 0%, #59d9e0 100%)',
     display: 'flex',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: '12px',
+    overflowY: 'auto',
   },
 
   phone: {
     width: '100%',
     maxWidth: '430px',
-    height: '100vh',
-    maxHeight: '900px',
+    minHeight: 'calc(100vh - 24px)',
     background: 'linear-gradient(180deg, #79e4e8 0%, #57d6df 100%)',
     borderRadius: '34px',
     padding: '16px',
@@ -341,7 +341,12 @@ const styles = {
     width: '100%',
   },
 
-  outletWrap: { flex: 1, display: 'flex', flexDirection: 'column' },
+  outletWrap: {
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  },
 
   modalOverlay: {
     position: 'absolute',
