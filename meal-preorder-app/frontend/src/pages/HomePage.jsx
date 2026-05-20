@@ -646,9 +646,11 @@ const styles = {
   tabsWrap: {
     display: 'flex',
     gap: '8px',
+    overflowX: 'auto',
+    paddingBottom: '2px',
   },
   tabButton: {
-    flex: 1,
+    flex: '1 0 92px',
     border: 'none',
     background: 'rgba(255,255,255,0.2)',
     color: '#12646f',
@@ -664,8 +666,8 @@ const styles = {
     boxShadow: '0 8px 18px rgba(0,0,0,0.08)',
   },
   menuArea: {
-    flex: 1,
-    minHeight: 0,
+    flex: '0 0 auto',
+    minHeight: 'auto',
     background: 'rgba(255,255,255,0.22)',
     borderRadius: '26px',
     padding: '12px',
@@ -707,9 +709,9 @@ const styles = {
     textAlign: 'center',
   },
   scrollArea: {
-    flex: 1,
-    minHeight: 0,
-    overflowY: 'auto',
+    flex: '0 0 auto',
+    minHeight: 'auto',
+    overflowY: 'visible',
     paddingRight: '2px',
   },
   infoBox: {
@@ -722,8 +724,9 @@ const styles = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(156px, 1fr))',
     gap: '14px',
+    alignItems: 'stretch',
   },
   card: {
     background: 'linear-gradient(180deg, #34aaf4 0%, #198ff0 100%)',
