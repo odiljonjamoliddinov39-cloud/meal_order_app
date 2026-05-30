@@ -54,7 +54,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 app.use('/api/menu', (req, res, next) => {
   res.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
