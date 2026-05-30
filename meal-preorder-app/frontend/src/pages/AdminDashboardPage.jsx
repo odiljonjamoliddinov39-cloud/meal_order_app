@@ -18,6 +18,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [adminMessage, setAdminMessage] = useState('');
   const [adminBusyKey, setAdminBusyKey] = useState('');
+  const [imageDrafts, setImageDrafts] = useState({});
 
   const [dayForm, setDayForm] = useState({ date: '' });
 
@@ -27,6 +28,7 @@ export default function AdminDashboardPage() {
     price: '',
     quantity: '',
     type: 'meal',
+    imageUrl: '',
   });
 
   const [editingOrderId, setEditingOrderId] = useState(null);
@@ -45,6 +47,15 @@ export default function AdminDashboardPage() {
 
       setDays(Array.isArray(daysRes.data) ? daysRes.data : []);
       setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
+      const drafts = {};
+
+      (Array.isArray(daysRes.data) ? daysRes.data : []).forEach((day) => {
+        (day.items || []).forEach((item) => {
+          drafts[item.id] = item.imageUrl || '';
+        });
+      });
+
+      setImageDrafts(drafts);
     } catch (error) {
       console.error('ADMIN FETCH ERROR:', error?.response?.data || error.message);
       setAdminMessage(error?.response?.data?.message || 'Failed to load admin data');
@@ -181,11 +192,29 @@ export default function AdminDashboardPage() {
         price: '',
         quantity: '',
         type: 'meal',
+        imageUrl: '',
       });
 
       await fetchData();
     } catch (error) {
       console.error('CREATE ITEM ERROR:', error?.response?.data || error.message);
+    }
+  };
+
+  const saveItemImage = async (itemId) => {
+    try {
+      setAdminBusyKey(`image:${itemId}`);
+      setAdminMessage('');
+      await api.patch(`/admin/menu/items/${itemId}`, {
+        imageUrl: (imageDrafts[itemId] || '').trim(),
+      });
+      setAdminMessage('Изображение сохранено');
+      await fetchData();
+    } catch (error) {
+      console.error('SAVE IMAGE ERROR:', error?.response?.data || error.message);
+      setAdminMessage(error?.response?.data?.message || 'Не удалось сохранить изображение');
+    } finally {
+      setAdminBusyKey('');
     }
   };
 
@@ -551,6 +580,16 @@ export default function AdminDashboardPage() {
               required
             />
 
+            <input
+              type="url"
+              placeholder="Ссылка на изображение"
+              value={itemForm.imageUrl}
+              onChange={(e) =>
+                setItemForm((prev) => ({ ...prev, imageUrl: e.target.value }))
+              }
+              style={styles.input}
+            />
+
             <select
               value={itemForm.type}
               onChange={(e) =>
@@ -598,6 +637,16 @@ export default function AdminDashboardPage() {
                   ) : (
                     (day.items || []).map((item) => (
                       <div key={item.id} style={styles.itemRow}>
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            style={styles.itemThumb}
+                          />
+                        ) : (
+                          <div style={styles.itemThumbEmpty}>Нет фото</div>
+                        )}
+
                         <div>
                           {item.name}{' '}
                           <span style={styles.typeBadge}>({item.type || 'meal'})</span>
@@ -608,6 +657,26 @@ export default function AdminDashboardPage() {
 
                         <div style={styles.itemActions}>
                           <span>{item.price}</span>
+                          <input
+                            type="url"
+                            value={imageDrafts[item.id] || ''}
+                            onChange={(e) =>
+                              setImageDrafts((prev) => ({
+                                ...prev,
+                                [item.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Ссылка на фото"
+                            style={styles.imageInput}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveItemImage(item.id)}
+                            disabled={adminBusyKey === `image:${item.id}`}
+                            style={styles.primaryButtonSmall}
+                          >
+                            {adminBusyKey === `image:${item.id}` ? 'Сохранение...' : 'Сохранить фото'}
+                          </button>
                           {item.isActive ? (
                             <button
                               type="button"
@@ -1021,11 +1090,42 @@ const styles = {
     borderRadius: '12px',
     flexWrap: 'wrap',
   },
+  itemThumb: {
+    width: '64px',
+    height: '64px',
+    objectFit: 'cover',
+    borderRadius: '12px',
+    background: '#e8f2fb',
+  },
+  itemThumbEmpty: {
+    width: '64px',
+    height: '64px',
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: '12px',
+    background: '#e8f2fb',
+    color: '#70839b',
+    fontSize: '11px',
+    fontWeight: 800,
+    textAlign: 'center',
+  },
   itemActions: {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
     flexWrap: 'wrap',
+  },
+  imageInput: {
+    minWidth: '220px',
+    maxWidth: '320px',
+    flex: '1 1 220px',
+    padding: '8px 10px',
+    borderRadius: '10px',
+    border: '1px solid #d9e4f1',
+    background: '#ffffff',
+    color: '#16324f',
+    boxSizing: 'border-box',
+    fontSize: '13px',
   },
   typeBadge: {
     color: '#5b708a',
