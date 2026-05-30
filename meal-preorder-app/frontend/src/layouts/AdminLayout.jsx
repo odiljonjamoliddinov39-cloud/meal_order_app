@@ -25,7 +25,7 @@ export default function AdminLayout() {
           flexWrap: 'wrap',
         }}
       >
-        <Link to="/web">Go to app</Link>
+        <Link to="/web">Перейти в приложение</Link>
         <button
           type="button"
           onClick={logout}
@@ -39,7 +39,7 @@ export default function AdminLayout() {
             fontWeight: 700,
           }}
         >
-          Logout
+          Выйти
         </button>
       </div>
 
