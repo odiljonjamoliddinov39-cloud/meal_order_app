@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
       const token = response?.data?.token;
 
       if (!token) {
-        setError('No token returned from server');
+        setError('Сервер не вернул токен');
         setLoading(false);
         return;
       }
@@ -44,7 +44,7 @@ export default function AdminLoginPage() {
       navigate('/admin');
     } catch (err) {
       console.error('LOGIN ERROR:', err?.response?.data || err.message);
-      setError(err?.response?.data?.message || 'Login failed');
+      setError(err?.response?.data?.message || 'Не удалось войти');
     } finally {
       setLoading(false);
     }
@@ -71,9 +71,9 @@ export default function AdminLoginPage() {
           boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
         }}
       >
-        <h1 style={{ marginTop: 0, marginBottom: '8px' }}>Admin Login</h1>
+        <h1 style={{ marginTop: 0, marginBottom: '8px' }}>Вход в админку</h1>
         <p style={{ marginTop: 0, color: '#666', marginBottom: '20px' }}>
-          Sign in to manage menu and orders
+          Войдите, чтобы управлять меню и заказами
         </p>
 
         {error && (
@@ -96,7 +96,7 @@ export default function AdminLoginPage() {
               htmlFor="username"
               style={{ display: 'block', marginBottom: '6px' }}
             >
-              Login
+              Логин
             </label>
             <input
               id="username"
@@ -121,7 +121,7 @@ export default function AdminLoginPage() {
               htmlFor="password"
               style={{ display: 'block', marginBottom: '6px' }}
             >
-              Password
+              Пароль
             </label>
             <input
               id="password"
@@ -152,7 +152,7 @@ export default function AdminLoginPage() {
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Вход...' : 'Войти'}
           </button>
         </form>
       </div>
