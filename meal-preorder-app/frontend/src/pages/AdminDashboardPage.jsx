@@ -64,6 +64,67 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const imageFileToDataUrl = (file) => {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        resolve('');
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        reject(new Error('Выберите файл изображения'));
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const image = new Image();
+
+        image.onload = () => {
+          const maxSide = 900;
+          const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+          const width = Math.max(1, Math.round(image.width * scale));
+          const height = Math.max(1, Math.round(image.height * scale));
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+
+          canvas.width = width;
+          canvas.height = height;
+          context.drawImage(image, 0, 0, width, height);
+
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+
+        image.onerror = () => reject(new Error('Не удалось прочитать изображение'));
+        image.src = reader.result;
+      };
+
+      reader.onerror = () => reject(new Error('Не удалось загрузить файл'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const setCreateItemImage = async (file) => {
+    try {
+      const imageData = await imageFileToDataUrl(file);
+      setItemForm((prev) => ({ ...prev, imageUrl: imageData }));
+      setAdminMessage(imageData ? 'Изображение выбрано' : '');
+    } catch (error) {
+      setAdminMessage(error.message || 'Не удалось загрузить изображение');
+    }
+  };
+
+  const setExistingItemImage = async (itemId, file) => {
+    try {
+      const imageData = await imageFileToDataUrl(file);
+      setImageDrafts((prev) => ({ ...prev, [itemId]: imageData }));
+      setAdminMessage(imageData ? 'Изображение выбрано, нажмите "Сохранить фото"' : '');
+    } catch (error) {
+      setAdminMessage(error.message || 'Не удалось загрузить изображение');
+    }
+  };
+
   const fetchLogs = async () => {
     try {
       const params = new URLSearchParams({
@@ -581,14 +642,15 @@ export default function AdminDashboardPage() {
             />
 
             <input
-              type="url"
-              placeholder="Ссылка на изображение"
-              value={itemForm.imageUrl}
-              onChange={(e) =>
-                setItemForm((prev) => ({ ...prev, imageUrl: e.target.value }))
-              }
+              type="file"
+              accept="image/*"
+              onChange={(e) => setCreateItemImage(e.target.files?.[0])}
               style={styles.input}
             />
+
+            {itemForm.imageUrl ? (
+              <img src={itemForm.imageUrl} alt="Предпросмотр" style={styles.createImagePreview} />
+            ) : null}
 
             <select
               value={itemForm.type}
@@ -658,16 +720,10 @@ export default function AdminDashboardPage() {
                         <div style={styles.itemActions}>
                           <span>{item.price}</span>
                           <input
-                            type="url"
-                            value={imageDrafts[item.id] || ''}
-                            onChange={(e) =>
-                              setImageDrafts((prev) => ({
-                                ...prev,
-                                [item.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Ссылка на фото"
-                            style={styles.imageInput}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setExistingItemImage(item.id, e.target.files?.[0])}
+                            style={styles.fileInput}
                           />
                           <button
                             type="button"
@@ -1115,10 +1171,10 @@ const styles = {
     gap: '10px',
     flexWrap: 'wrap',
   },
-  imageInput: {
-    minWidth: '220px',
-    maxWidth: '320px',
-    flex: '1 1 220px',
+  fileInput: {
+    minWidth: '180px',
+    maxWidth: '260px',
+    flex: '1 1 180px',
     padding: '8px 10px',
     borderRadius: '10px',
     border: '1px solid #d9e4f1',
@@ -1126,6 +1182,13 @@ const styles = {
     color: '#16324f',
     boxSizing: 'border-box',
     fontSize: '13px',
+  },
+  createImagePreview: {
+    width: '96px',
+    height: '96px',
+    objectFit: 'cover',
+    borderRadius: '14px',
+    background: '#e8f2fb',
   },
   typeBadge: {
     color: '#5b708a',
