@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   getTelegramDisplayName,
@@ -8,7 +8,7 @@ import {
 } from '../api/telegramAuth.js';
 
 const STORAGE_LANG_KEY = 'meal_app_lang_v2';
-const DEFAULT_LANGUAGE = 'UZB';
+const DEFAULT_LANGUAGE = 'RUS';
 
 const translations = {
   ENG: {
@@ -29,21 +29,18 @@ const translations = {
     themeHint: 'Mini app settings',
   },
   RUS: {
-    menu: 'Menu',
-    settings: 'Settings',
-    account: 'Account',
-    cart: 'Cart',
-    orders: 'Orders',
-    language: 'Language',
-    save: 'Save',
-    close: 'Close',
-    profile: 'Profile',
-    telegramName: 'Telegram name',
-    username: 'Username',
+    menu: 'Меню',
+    account: 'Аккаунт',
+    cart: 'Корзина',
+    orders: 'Заказы',
+    close: 'Закрыть',
+    profile: 'Профиль',
+    telegramName: 'Имя в Telegram',
+    username: 'Имя пользователя',
     telegramId: 'Telegram ID',
-    noUsername: 'No username',
-    noPhoto: 'No photo',
-    themeHint: 'Mini app settings',
+    noUsername: 'Нет username',
+    noPhoto: 'Нет фото',
+    themeHint: 'Мини-приложение',
   },
   UZB: {
     menu: 'Menyu',
@@ -65,16 +62,12 @@ const translations = {
 };
 
 function readLanguage() {
-  try {
-    return localStorage.getItem(STORAGE_LANG_KEY) || DEFAULT_LANGUAGE;
-  } catch {
-    return DEFAULT_LANGUAGE;
-  }
+  return DEFAULT_LANGUAGE;
 }
 
 function writeLanguage(lang) {
   try {
-    localStorage.setItem(STORAGE_LANG_KEY, lang);
+    localStorage.setItem(STORAGE_LANG_KEY, DEFAULT_LANGUAGE);
   } catch {
     // Telegram WebViews can deny storage on some older devices.
   }
@@ -84,8 +77,6 @@ export default function CustomerLayout() {
   const location = useLocation();
 
   const [language, setLanguage] = useState(readLanguage());
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [user, setUser] = useState(() => getTelegramUser());
 
@@ -110,14 +101,10 @@ export default function CustomerLayout() {
   }, [language]);
 
   useEffect(() => {
-    setMenuOpen(false);
-    setSettingsOpen(false);
     setAccountOpen(false);
   }, [location.pathname]);
 
   function closeAll() {
-    setMenuOpen(false);
-    setSettingsOpen(false);
     setAccountOpen(false);
   }
 
@@ -127,10 +114,6 @@ export default function CustomerLayout() {
 
         {/* TOP BAR */}
         <div style={styles.topBar}>
-          <button style={styles.iconButton} onClick={() => setMenuOpen(v => !v)}>
-            ?
-          </button>
-
           <div style={styles.brandBlock}>
             <div style={styles.brandTitle}>BrunchOrder</div>
             <div style={styles.brandSub}>{t.themeHint}</div>
@@ -145,59 +128,10 @@ export default function CustomerLayout() {
           </button>
         </div>
 
-        {/* DROPDOWN MENU */}
-        {menuOpen && (
-          <div style={styles.dropdown}>
-            <Link to="/web" style={styles.dropdownLink}>{t.menu}</Link>
-            <Link to="/web/cart" style={styles.dropdownLink}>{t.cart}</Link>
-            <Link to="/web/orders" style={styles.dropdownLink}>{t.orders}</Link>
-
-            <button
-              style={styles.dropdownAction}
-              onClick={() => {
-                setMenuOpen(false);
-                setSettingsOpen(true);
-              }}
-            >
-              {t.settings}
-            </button>
-          </div>
-        )}
-
         {/* MAIN */}
         <div style={styles.outletWrap}>
           <Outlet context={{ language, t, user }} />
         </div>
-
-        {/* SETTINGS */}
-        {settingsOpen && (
-          <div style={styles.modalOverlay} onClick={closeAll}>
-            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <div style={styles.modalTitle}>{t.settings}</div>
-
-              <div style={styles.modalLabel}>{t.language}</div>
-
-              <div style={styles.langRow}>
-                {['ENG', 'RUS', 'UZB'].map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => setLanguage(lang)}
-                    style={{
-                      ...styles.langChip,
-                      ...(language === lang ? styles.langChipActive : {}),
-                    }}
-                  >
-                    {lang}
-                  </button>
-                ))}
-              </div>
-
-              <button style={styles.modalPrimary} onClick={closeAll}>
-                {t.save}
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* ACCOUNT */}
         {accountOpen && (
