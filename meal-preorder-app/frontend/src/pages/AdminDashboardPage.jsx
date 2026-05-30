@@ -125,10 +125,10 @@ export default function AdminDashboardPage() {
     const text = filteredLogs.map(formatLogLine).join('\n');
 
     try {
-      await navigator.clipboard.writeText(text || 'No logs visible.');
-      setCopyStatus('Copied visible logs');
+      await navigator.clipboard.writeText(text || 'Нет видимых логов.');
+      setCopyStatus('Логи скопированы');
     } catch {
-      setCopyStatus('Copy failed');
+      setCopyStatus('Не удалось скопировать');
     }
   };
 
@@ -191,9 +191,9 @@ export default function AdminDashboardPage() {
 
   const deleteDay = async (dayId) => {
     const day = days.find((item) => item.id === dayId);
-    const label = day?.date || 'this day';
+    const label = day?.date || 'этот день';
 
-    if (!window.confirm(`Remove menu day ${label} from the active menu? Existing orders stay safe.`)) {
+    if (!window.confirm(`Убрать день меню ${label} из активного меню? Существующие заказы сохранятся.`)) {
       return;
     }
 
@@ -201,18 +201,18 @@ export default function AdminDashboardPage() {
       setAdminBusyKey(`day:${dayId}`);
       setAdminMessage('');
       await api.delete(`/admin/menu/days/${dayId}`);
-      setAdminMessage('Menu day deleted');
+      setAdminMessage('День меню удалён');
       await fetchData();
     } catch (error) {
       console.error('DELETE DAY ERROR:', error?.response?.data || error.message);
-      setAdminMessage(error?.response?.data?.message || 'Failed to delete menu day');
+      setAdminMessage(error?.response?.data?.message || 'Не удалось удалить день меню');
     } finally {
       setAdminBusyKey('');
     }
   };
 
   const deleteItem = async (dayId, itemId) => {
-    if (!window.confirm('Disable this menu item? Existing orders will stay safe.')) {
+    if (!window.confirm('Отключить эту позицию меню? Существующие заказы сохранятся.')) {
       return;
     }
 
@@ -220,11 +220,11 @@ export default function AdminDashboardPage() {
       setAdminBusyKey(`item:${itemId}`);
       setAdminMessage('');
       await api.delete(`/admin/menu/items/${itemId}`);
-      setAdminMessage('Menu item disabled');
+      setAdminMessage('Позиция меню отключена');
       await fetchData();
     } catch (error) {
       console.error('DELETE ITEM ERROR:', error?.response?.data || error.message);
-      setAdminMessage(error?.response?.data?.message || 'Failed to delete menu item');
+      setAdminMessage(error?.response?.data?.message || 'Не удалось удалить позицию меню');
     } finally {
       setAdminBusyKey('');
     }
@@ -235,18 +235,18 @@ export default function AdminDashboardPage() {
       setAdminBusyKey(`item:${itemId}`);
       setAdminMessage('');
       await api.patch(`/admin/menu/items/${itemId}`, { isActive: true });
-      setAdminMessage('Menu item restored');
+      setAdminMessage('Позиция меню восстановлена');
       await fetchData();
     } catch (error) {
       console.error('RESTORE ITEM ERROR:', error?.response?.data || error.message);
-      setAdminMessage(error?.response?.data?.message || 'Failed to restore menu item');
+      setAdminMessage(error?.response?.data?.message || 'Не удалось восстановить позицию меню');
     } finally {
       setAdminBusyKey('');
     }
   };
 
   const deleteOrder = async (orderId) => {
-    if (!window.confirm('Delete this order? Item availability will be restored.')) {
+    if (!window.confirm('Удалить этот заказ? Доступное количество позиций будет восстановлено.')) {
       return;
     }
 
@@ -254,11 +254,11 @@ export default function AdminDashboardPage() {
       setAdminBusyKey(`order:${orderId}`);
       setAdminMessage('');
       await api.delete(`/admin/orders/${orderId}`);
-      setAdminMessage('Order deleted');
+      setAdminMessage('Заказ удалён');
       await fetchData();
     } catch (error) {
       console.error('DELETE ORDER ERROR:', error?.response?.data || error.message);
-      setAdminMessage(error?.response?.data?.message || 'Failed to delete order');
+      setAdminMessage(error?.response?.data?.message || 'Не удалось удалить заказ');
     } finally {
       setAdminBusyKey('');
     }
@@ -310,7 +310,7 @@ export default function AdminDashboardPage() {
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Заказы');
     XLSX.writeFile(workbook, 'orders.xlsx');
   };
 
@@ -318,8 +318,8 @@ export default function AdminDashboardPage() {
     <div style={styles.page}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Admin Dashboard</h1>
-          <p style={styles.subtitle}>Manage menu and orders</p>
+          <h1 style={styles.title}>Панель администратора</h1>
+          <p style={styles.subtitle}>Управление меню и заказами</p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -330,10 +330,10 @@ export default function AdminDashboardPage() {
             }}
             style={styles.primaryButton}
           >
-            Refresh
+            Обновить
           </button>
           <button onClick={exportOrdersXLS} style={styles.primaryButton}>
-            Download XLS
+            Скачать XLS
           </button>
         </div>
       </div>
@@ -347,9 +347,9 @@ export default function AdminDashboardPage() {
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <div>
-            <h2 style={styles.sectionTitle}>Live Logs</h2>
+            <h2 style={styles.sectionTitle}>Журнал событий</h2>
             <p style={styles.sectionSubtitle}>
-              Backend requests and server errors saved in the database for recent review.
+              Запросы сервера и ошибки сохраняются в базе данных для проверки.
             </p>
           </div>
 
@@ -359,10 +359,10 @@ export default function AdminDashboardPage() {
               onChange={(e) => setLogRange(e.target.value)}
               style={styles.compactSelect}
             >
-              <option value="1h">Past hour</option>
-              <option value="24h">Past day</option>
-              <option value="7d">Past week</option>
-              <option value="30d">Past month</option>
+              <option value="1h">За последний час</option>
+              <option value="24h">За день</option>
+              <option value="7d">За неделю</option>
+              <option value="30d">За месяц</option>
             </select>
 
             <select
@@ -370,10 +370,10 @@ export default function AdminDashboardPage() {
               onChange={(e) => setLogLimit(e.target.value)}
               style={styles.compactSelect}
             >
-              <option value="250">Show 250</option>
-              <option value="500">Show 500</option>
-              <option value="1000">Show 1000</option>
-              <option value="5000">Show 5000</option>
+              <option value="250">Показать 250</option>
+              <option value="500">Показать 500</option>
+              <option value="1000">Показать 1000</option>
+              <option value="5000">Показать 5000</option>
             </select>
 
             <select
@@ -381,9 +381,9 @@ export default function AdminDashboardPage() {
               onChange={(e) => setLogFilter(e.target.value)}
               style={styles.compactSelect}
             >
-              <option value="all">All</option>
-              <option value="error">Errors</option>
-              <option value="warn">Warnings</option>
+              <option value="all">Все</option>
+              <option value="error">Ошибки</option>
+              <option value="warn">Предупреждения</option>
               <option value="info">Info</option>
             </select>
 
@@ -392,22 +392,22 @@ export default function AdminDashboardPage() {
               onChange={(e) => setLogSourceFilter(e.target.value)}
               style={styles.compactSelect}
             >
-              <option value="all">All sources</option>
-              <option value="request">Requests</option>
-              <option value="server">Server</option>
+              <option value="all">Все источники</option>
+              <option value="request">Запросы</option>
+              <option value="server">Сервер</option>
             </select>
 
             <button onClick={fetchLogs} style={styles.primaryButtonSmall}>
-              Apply
+              Применить
             </button>
             <button onClick={copyVisibleLogs} style={styles.primaryButtonSmall}>
-              Copy Visible
+              Скопировать
             </button>
             <button onClick={exportVisibleLogs} style={styles.primaryButtonSmall}>
-              Export XLS
+              Экспорт XLS
             </button>
             <button onClick={clearLogs} style={styles.smallDangerButton}>
-              Clear Logs
+              Очистить
             </button>
           </div>
         </div>
@@ -417,7 +417,7 @@ export default function AdminDashboardPage() {
             type="text"
             value={logSearch}
             onChange={(e) => setLogSearch(e.target.value)}
-            placeholder="Search message or path"
+            placeholder="Поиск по сообщению или пути"
             style={styles.logInput}
           />
           <input
@@ -428,15 +428,15 @@ export default function AdminDashboardPage() {
             style={styles.logInput}
           />
           <span style={styles.logCount}>
-            {filteredLogs.length} shown of {logTotal}
-            {logHasMore ? ` - limited to ${logLimit}` : ''}
+            Показано {filteredLogs.length} из {logTotal}
+            {logHasMore ? ` - лимит ${logLimit}` : ''}
             {copyStatus ? ` - ${copyStatus}` : ''}
           </span>
         </div>
 
         <div style={styles.logPanel}>
           {filteredLogs.length === 0 ? (
-            <div style={styles.emptyLog}>No logs captured yet.</div>
+            <div style={styles.emptyLog}>Логов пока нет.</div>
           ) : (
             filteredLogs.map((log) => (
               <div key={log.id} style={styles.logRow}>
@@ -459,29 +459,29 @@ export default function AdminDashboardPage() {
 
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
-          <div style={styles.statLabel}>Menu Days</div>
+          <div style={styles.statLabel}>Дни меню</div>
           <div style={styles.statValue}>{days.length}</div>
         </div>
 
         <div style={styles.statCard}>
-          <div style={styles.statLabel}>Orders</div>
+          <div style={styles.statLabel}>Заказы</div>
           <div style={styles.statValue}>{totalOrders}</div>
         </div>
 
         <div style={styles.statCard}>
-          <div style={styles.statLabel}>Ordered Items</div>
+          <div style={styles.statLabel}>Заказанные позиции</div>
           <div style={styles.statValue}>{totalItems}</div>
         </div>
 
         <div style={styles.statCard}>
-          <div style={styles.statLabel}>Revenue</div>
+          <div style={styles.statLabel}>Выручка</div>
           <div style={styles.statValue}>{totalRevenue}</div>
         </div>
       </div>
 
       <div style={styles.formGrid}>
         <div style={styles.panel}>
-          <h2 style={styles.panelTitle}>Create Day</h2>
+          <h2 style={styles.panelTitle}>Создать день</h2>
 
           <form onSubmit={createDay} style={styles.form}>
             <input
@@ -493,13 +493,13 @@ export default function AdminDashboardPage() {
             />
 
             <button type="submit" style={styles.primaryButton}>
-              Create Day
+              Создать день
             </button>
           </form>
         </div>
 
         <div style={styles.panel}>
-          <h2 style={styles.panelTitle}>Create Item</h2>
+          <h2 style={styles.panelTitle}>Создать позицию</h2>
 
           <form onSubmit={createItem} style={styles.form}>
             <select
@@ -510,7 +510,7 @@ export default function AdminDashboardPage() {
               style={styles.input}
               required
             >
-              <option value="">Select day</option>
+              <option value="">Выберите день</option>
               {sortedMenuDays.map((day) => (
                 <option key={day.id} value={day.id}>
                   {day.date}
@@ -520,7 +520,7 @@ export default function AdminDashboardPage() {
 
             <input
               type="text"
-              placeholder="Name"
+              placeholder="Название"
               value={itemForm.name}
               onChange={(e) =>
                 setItemForm((prev) => ({ ...prev, name: e.target.value }))
@@ -531,7 +531,7 @@ export default function AdminDashboardPage() {
 
             <input
               type="number"
-              placeholder="Price"
+              placeholder="Цена"
               value={itemForm.price}
               onChange={(e) =>
                 setItemForm((prev) => ({ ...prev, price: e.target.value }))
@@ -542,7 +542,7 @@ export default function AdminDashboardPage() {
 
             <input
               type="number"
-              placeholder="Quantity"
+              placeholder="Количество"
               value={itemForm.quantity}
               onChange={(e) =>
                 setItemForm((prev) => ({ ...prev, quantity: e.target.value }))
@@ -558,24 +558,24 @@ export default function AdminDashboardPage() {
               }
               style={styles.input}
             >
-              <option value="meal">Meal</option>
-              <option value="coffee">Coffee</option>
-              <option value="drink">Drink</option>
-              <option value="dessert">Dessert</option>
+              <option value="meal">Еда</option>
+              <option value="coffee">Кофе</option>
+              <option value="drink">Напиток</option>
+              <option value="dessert">Десерт</option>
             </select>
 
             <button type="submit" style={styles.primaryButton}>
-              Create Item
+              Создать позицию
             </button>
           </form>
         </div>
       </div>
 
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Menu Days</h2>
+        <h2 style={styles.sectionTitle}>Дни меню</h2>
 
         {sortedMenuDays.length === 0 ? (
-          <div style={styles.emptyCard}>No menu days yet.</div>
+          <div style={styles.emptyCard}>Дней меню пока нет.</div>
         ) : (
           <div style={styles.cardsGrid}>
             {sortedMenuDays.map((day) => (
@@ -588,13 +588,13 @@ export default function AdminDashboardPage() {
                     disabled={adminBusyKey === `day:${day.id}`}
                     style={styles.dangerButton}
                   >
-                    {adminBusyKey === `day:${day.id}` ? 'Deleting...' : 'Delete Day'}
+                    {adminBusyKey === `day:${day.id}` ? 'Удаление...' : 'Удалить день'}
                   </button>
                 </div>
 
                 <div style={styles.itemsWrap}>
                   {(day.items || []).length === 0 ? (
-                    <p style={styles.emptyText}>No items yet.</p>
+                    <p style={styles.emptyText}>Позиций пока нет.</p>
                   ) : (
                     (day.items || []).map((item) => (
                       <div key={item.id} style={styles.itemRow}>
@@ -602,7 +602,7 @@ export default function AdminDashboardPage() {
                           {item.name}{' '}
                           <span style={styles.typeBadge}>({item.type || 'meal'})</span>
                           {!item.isActive ? (
-                            <span style={styles.inactiveBadge}>Disabled</span>
+                            <span style={styles.inactiveBadge}>Отключено</span>
                           ) : null}
                         </div>
 
@@ -615,7 +615,7 @@ export default function AdminDashboardPage() {
                               disabled={adminBusyKey === `item:${item.id}`}
                               style={styles.smallDangerButton}
                             >
-                              {adminBusyKey === `item:${item.id}` ? 'Deleting...' : 'Delete Item'}
+                              {adminBusyKey === `item:${item.id}` ? 'Удаление...' : 'Удалить позицию'}
                             </button>
                           ) : (
                             <button
@@ -624,7 +624,7 @@ export default function AdminDashboardPage() {
                               disabled={adminBusyKey === `item:${item.id}`}
                               style={styles.primaryButtonSmall}
                             >
-                              {adminBusyKey === `item:${item.id}` ? 'Restoring...' : 'Restore'}
+                              {adminBusyKey === `item:${item.id}` ? 'Восстановление...' : 'Восстановить'}
                             </button>
                           )}
                         </div>
@@ -639,18 +639,18 @@ export default function AdminDashboardPage() {
       </div>
 
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Orders</h2>
+        <h2 style={styles.sectionTitle}>Заказы</h2>
 
         {loading ? (
-          <div style={styles.emptyCard}>Loading...</div>
+          <div style={styles.emptyCard}>Загрузка...</div>
         ) : orders.length === 0 ? (
-          <div style={styles.emptyCard}>No orders yet.</div>
+          <div style={styles.emptyCard}>Заказов пока нет.</div>
         ) : (
           <div style={styles.orderList}>
             {orders.map((order) => (
               <div key={order.id} style={styles.orderCard}>
                 <div style={styles.cardTop}>
-                  <strong style={styles.cardTitle}>Order #{order.id}</strong>
+                  <strong style={styles.cardTitle}>Заказ #{order.id}</strong>
 
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button
@@ -658,7 +658,7 @@ export default function AdminDashboardPage() {
                       onClick={() => startEditOrder(order)}
                       style={styles.primaryButtonSmall}
                     >
-                      Edit
+                      Изменить
                     </button>
 
                     <button
@@ -667,7 +667,7 @@ export default function AdminDashboardPage() {
                       disabled={adminBusyKey === `order:${order.id}`}
                       style={styles.dangerButton}
                     >
-                      {adminBusyKey === `order:${order.id}` ? 'Deleting...' : 'Delete'}
+                      {adminBusyKey === `order:${order.id}` ? 'Удаление...' : 'Удалить'}
                     </button>
                   </div>
                 </div>
@@ -710,17 +710,17 @@ export default function AdminDashboardPage() {
                       }
                       style={styles.input}
                     >
-                      <option value="PENDING">Pending</option>
-                      <option value="CONFIRMED">Confirmed</option>
-                      <option value="CANCELLED">Cancelled</option>
+                      <option value="PENDING">Ожидает</option>
+                      <option value="CONFIRMED">Подтверждён</option>
+                      <option value="CANCELLED">Отменён</option>
                     </select>
 
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <button onClick={saveEditOrder} style={styles.primaryButton}>
-                        Save Order
+                        Сохранить заказ
                       </button>
                       <button onClick={cancelEditOrder} style={styles.smallDangerButton}>
-                        Cancel
+                        Отмена
                       </button>
                     </div>
                   </div>
