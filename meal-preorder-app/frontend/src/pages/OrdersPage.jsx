@@ -19,19 +19,19 @@ const labels = {
     authRequired: 'Open this page from Telegram to load your orders',
   },
   RUS: {
-    title: 'My orders',
-    subtitle: 'Orders loaded from backend',
-    back: 'Home',
-    empty: 'No orders yet',
-    emptyText: 'Place an order from the cart page and it will appear here.',
-    goCart: 'Go to cart',
-    total: 'Total',
-    statusPending: 'Pending',
-    statusConfirmed: 'Confirmed',
-    statusCancelled: 'Cancelled',
-    loading: 'Loading orders...',
-    failed: 'Failed to load orders',
-    authRequired: 'Open this page from Telegram to load your orders',
+    title: 'Мои заказы',
+    subtitle: 'Заказы загружены с сервера',
+    back: 'Главная',
+    empty: 'Заказов пока нет',
+    emptyText: 'Оформите заказ из корзины, и он появится здесь.',
+    goCart: 'Перейти в корзину',
+    total: 'Итого',
+    statusPending: 'Ожидает',
+    statusConfirmed: 'Подтверждён',
+    statusCancelled: 'Отменён',
+    loading: 'Заказы загружаются...',
+    failed: 'Не удалось загрузить заказы',
+    authRequired: 'Откройте страницу через Telegram',
   },
   UZB: {
     title: 'Mening buyurtmalarim',
@@ -172,7 +172,7 @@ export default function OrdersPage() {
                 <div style={styles.orderTop}>
                   <div>
                     <div style={styles.orderTitle}>
-                      Order #{String(order.id || '').slice(-6) || '------'}
+                      Заказ #{String(order.id || '').slice(-6) || '------'}
                     </div>
                     <div style={styles.orderDate}>{formatOrderDate(order.createdAt)}</div>
                   </div>
