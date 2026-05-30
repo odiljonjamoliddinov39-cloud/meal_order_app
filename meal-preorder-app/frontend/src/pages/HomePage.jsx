@@ -28,26 +28,26 @@ const labels = {
     clearDayCart: 'Day changed, cart cleared',
   },
   RUS: {
-    allDays: 'Available days',
-    todayMenu: 'Menu',
-    yourOrder: 'Your order',
-    selected: 'selected',
-    emptyOrder: 'Choose items from the menu',
-    loading: 'Loading menu...',
-    failed: 'Failed to load menu',
-    authRequired: 'Open this menu from Telegram to load your account',
-    noDays: 'No menu day found',
-    noItems: 'No active items for this day',
-    all: 'All',
-    meal: 'Food',
-    coffee: 'Coffee',
-    drinks: 'Drinks',
-    dessert: 'Dessert',
-    account: 'Account',
-    cart: 'Cart',
-    orders: 'Orders',
-    openCart: 'Open cart',
-    clearDayCart: 'Day changed, cart cleared',
+    allDays: 'Доступные дни',
+    todayMenu: 'Меню',
+    yourOrder: 'Ваш заказ',
+    selected: 'выбрано',
+    emptyOrder: 'Выберите блюда из меню',
+    loading: 'Меню загружается...',
+    failed: 'Не удалось загрузить меню',
+    authRequired: 'Откройте меню через Telegram',
+    noDays: 'День меню не найден',
+    noItems: 'Нет активных позиций на этот день',
+    all: 'Все',
+    meal: 'Еда',
+    coffee: 'Кофе',
+    drinks: 'Напитки',
+    dessert: 'Десерт',
+    account: 'Аккаунт',
+    cart: 'Корзина',
+    orders: 'Заказы',
+    openCart: 'Открыть корзину',
+    clearDayCart: 'День изменён, корзина очищена',
   },
   UZB: {
     allDays: 'Mavjud kunlar',
@@ -489,7 +489,7 @@ export default function HomePage() {
           </div>
 
           <Link to="/web/cart" style={styles.cartBubble}>
-            Cart {cartCount}
+            Корзина {cartCount}
           </Link>
         </div>
 
@@ -529,7 +529,7 @@ export default function HomePage() {
                       ) : null}
                       <div style={styles.itemPrice}>{formatPrice(item.price)}</div>
                       <div style={styles.itemPrice}>
-                        Available: {item.availableQuantity}
+                        Доступно: {item.availableQuantity}
                       </div>
                     </div>
 
