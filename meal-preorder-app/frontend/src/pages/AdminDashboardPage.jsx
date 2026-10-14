@@ -441,164 +441,6 @@ export default function AdminDashboardPage() {
         </div>
       ) : null}
 
-      <div style={styles.section}>
-        <div style={styles.statsRow}>
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>Нажали /start</div>
-            <div style={styles.statValue}>{stats ? stats.startedUsers : '-'}</div>
-          </div>
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>👁 Активны сегодня</div>
-            <div style={styles.statValue}>{stats ? stats.activeToday : '-'}</div>
-          </div>
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>Активны за 7 дней</div>
-            <div style={styles.statValue}>{stats ? stats.activeWeek : '-'}</div>
-          </div>
-        </div>
-      </div>
-
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Отзывы ({feedback.length})</h2>
-        {feedback.length === 0 ? (
-          <p style={styles.sectionSubtitle}>Пока нет отзывов.</p>
-        ) : (
-          feedback.map((entry) => (
-            <div key={entry.id} style={styles.feedbackItem}>
-              <div style={styles.feedbackMeta}>
-                <strong>{entry.customerName || entry.telegramId}</strong>
-                {entry.rating ? ` · ${'★'.repeat(entry.rating)}` : ''}
-                {` · ${new Date(entry.createdAt).toLocaleString('ru-RU')}`}
-              </div>
-              <div>{entry.comment}</div>
-              <button
-                type="button"
-                style={styles.feedbackDelete}
-                onClick={async () => {
-                  await api.delete(`/admin/feedback/${entry.id}`);
-                  setFeedback((prev) => prev.filter((row) => row.id !== entry.id));
-                }}
-              >
-                Удалить
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div style={styles.section}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <h2 style={styles.sectionTitle}>Журнал событий</h2>
-            <p style={styles.sectionSubtitle}>
-              Запросы сервера и ошибки сохраняются в базе данных для проверки.
-            </p>
-          </div>
-
-          <div style={styles.logActions}>
-            <select
-              value={logRange}
-              onChange={(e) => setLogRange(e.target.value)}
-              style={styles.compactSelect}
-            >
-              <option value="1h">За последний час</option>
-              <option value="24h">За день</option>
-              <option value="7d">За неделю</option>
-              <option value="30d">За месяц</option>
-            </select>
-
-            <select
-              value={logLimit}
-              onChange={(e) => setLogLimit(e.target.value)}
-              style={styles.compactSelect}
-            >
-              <option value="250">Показать 250</option>
-              <option value="500">Показать 500</option>
-              <option value="1000">Показать 1000</option>
-              <option value="5000">Показать 5000</option>
-            </select>
-
-            <select
-              value={logFilter}
-              onChange={(e) => setLogFilter(e.target.value)}
-              style={styles.compactSelect}
-            >
-              <option value="all">Все</option>
-              <option value="error">Ошибки</option>
-              <option value="warn">Предупреждения</option>
-              <option value="info">Info</option>
-            </select>
-
-            <select
-              value={logSourceFilter}
-              onChange={(e) => setLogSourceFilter(e.target.value)}
-              style={styles.compactSelect}
-            >
-              <option value="all">Все источники</option>
-              <option value="request">Запросы</option>
-              <option value="server">Сервер</option>
-            </select>
-
-            <button onClick={fetchLogs} style={styles.primaryButtonSmall}>
-              Применить
-            </button>
-            <button onClick={copyVisibleLogs} style={styles.primaryButtonSmall}>
-              Скопировать
-            </button>
-            <button onClick={exportVisibleLogs} style={styles.primaryButtonSmall}>
-              Экспорт XLS
-            </button>
-            <button onClick={clearLogs} style={styles.smallDangerButton}>
-              Очистить
-            </button>
-          </div>
-        </div>
-
-        <div style={styles.logSearchRow}>
-          <input
-            type="text"
-            value={logSearch}
-            onChange={(e) => setLogSearch(e.target.value)}
-            placeholder="Поиск по сообщению или пути"
-            style={styles.logInput}
-          />
-          <input
-            type="text"
-            value={logTelegramId}
-            onChange={(e) => setLogTelegramId(e.target.value)}
-            placeholder="Telegram ID"
-            style={styles.logInput}
-          />
-          <span style={styles.logCount}>
-            Показано {filteredLogs.length} из {logTotal}
-            {logHasMore ? ` - лимит ${logLimit}` : ''}
-            {copyStatus ? ` - ${copyStatus}` : ''}
-          </span>
-        </div>
-
-        <div style={styles.logPanel}>
-          {filteredLogs.length === 0 ? (
-            <div style={styles.emptyLog}>Логов пока нет.</div>
-          ) : (
-            filteredLogs.map((log) => (
-              <div key={log.id} style={styles.logRow}>
-                <div style={styles.logMeta}>
-                  <span style={{ ...styles.logBadge, ...styles[`logBadge_${log.level}`] }}>
-                    {log.level || 'info'}
-                  </span>
-                  <span>{log.source || '-'}</span>
-                  <span>{log.time ? new Date(log.time).toLocaleString() : '-'}</span>
-                  {log.status ? <span>{log.status}</span> : null}
-                  {log.telegramUserId ? <span>tg:{log.telegramUserId}</span> : null}
-                </div>
-
-                <pre style={styles.logMessage}>{log.message || log.path || '-'}</pre>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
           <div style={styles.statLabel}>Дни меню</div>
@@ -906,6 +748,164 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         )}
+      </div>
+
+      <div style={styles.section}>
+        <div style={styles.statsRow}>
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>Нажали /start</div>
+            <div style={styles.statValue}>{stats ? stats.startedUsers : '-'}</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>👁 Активны сегодня</div>
+            <div style={styles.statValue}>{stats ? stats.activeToday : '-'}</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>Активны за 7 дней</div>
+            <div style={styles.statValue}>{stats ? stats.activeWeek : '-'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.section}>
+        <h2 style={styles.sectionTitle}>Отзывы ({feedback.length})</h2>
+        {feedback.length === 0 ? (
+          <p style={styles.sectionSubtitle}>Пока нет отзывов.</p>
+        ) : (
+          feedback.map((entry) => (
+            <div key={entry.id} style={styles.feedbackItem}>
+              <div style={styles.feedbackMeta}>
+                <strong>{entry.customerName || entry.telegramId}</strong>
+                {entry.rating ? ` · ${'★'.repeat(entry.rating)}` : ''}
+                {` · ${new Date(entry.createdAt).toLocaleString('ru-RU')}`}
+              </div>
+              <div>{entry.comment}</div>
+              <button
+                type="button"
+                style={styles.feedbackDelete}
+                onClick={async () => {
+                  await api.delete(`/admin/feedback/${entry.id}`);
+                  setFeedback((prev) => prev.filter((row) => row.id !== entry.id));
+                }}
+              >
+                Удалить
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={styles.section}>
+        <div style={styles.sectionHeader}>
+          <div>
+            <h2 style={styles.sectionTitle}>Журнал событий</h2>
+            <p style={styles.sectionSubtitle}>
+              Запросы сервера и ошибки сохраняются в базе данных для проверки.
+            </p>
+          </div>
+
+          <div style={styles.logActions}>
+            <select
+              value={logRange}
+              onChange={(e) => setLogRange(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="1h">За последний час</option>
+              <option value="24h">За день</option>
+              <option value="7d">За неделю</option>
+              <option value="30d">За месяц</option>
+            </select>
+
+            <select
+              value={logLimit}
+              onChange={(e) => setLogLimit(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="250">Показать 250</option>
+              <option value="500">Показать 500</option>
+              <option value="1000">Показать 1000</option>
+              <option value="5000">Показать 5000</option>
+            </select>
+
+            <select
+              value={logFilter}
+              onChange={(e) => setLogFilter(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="all">Все</option>
+              <option value="error">Ошибки</option>
+              <option value="warn">Предупреждения</option>
+              <option value="info">Info</option>
+            </select>
+
+            <select
+              value={logSourceFilter}
+              onChange={(e) => setLogSourceFilter(e.target.value)}
+              style={styles.compactSelect}
+            >
+              <option value="all">Все источники</option>
+              <option value="request">Запросы</option>
+              <option value="server">Сервер</option>
+            </select>
+
+            <button onClick={fetchLogs} style={styles.primaryButtonSmall}>
+              Применить
+            </button>
+            <button onClick={copyVisibleLogs} style={styles.primaryButtonSmall}>
+              Скопировать
+            </button>
+            <button onClick={exportVisibleLogs} style={styles.primaryButtonSmall}>
+              Экспорт XLS
+            </button>
+            <button onClick={clearLogs} style={styles.smallDangerButton}>
+              Очистить
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.logSearchRow}>
+          <input
+            type="text"
+            value={logSearch}
+            onChange={(e) => setLogSearch(e.target.value)}
+            placeholder="Поиск по сообщению или пути"
+            style={styles.logInput}
+          />
+          <input
+            type="text"
+            value={logTelegramId}
+            onChange={(e) => setLogTelegramId(e.target.value)}
+            placeholder="Telegram ID"
+            style={styles.logInput}
+          />
+          <span style={styles.logCount}>
+            Показано {filteredLogs.length} из {logTotal}
+            {logHasMore ? ` - лимит ${logLimit}` : ''}
+            {copyStatus ? ` - ${copyStatus}` : ''}
+          </span>
+        </div>
+
+        <div style={styles.logPanel}>
+          {filteredLogs.length === 0 ? (
+            <div style={styles.emptyLog}>Логов пока нет.</div>
+          ) : (
+            filteredLogs.map((log) => (
+              <div key={log.id} style={styles.logRow}>
+                <div style={styles.logMeta}>
+                  <span style={{ ...styles.logBadge, ...styles[`logBadge_${log.level}`] }}>
+                    {log.level || 'info'}
+                  </span>
+                  <span>{log.source || '-'}</span>
+                  <span>{log.time ? new Date(log.time).toLocaleString() : '-'}</span>
+                  {log.status ? <span>{log.status}</span> : null}
+                  {log.telegramUserId ? <span>tg:{log.telegramUserId}</span> : null}
+                </div>
+
+                <pre style={styles.logMessage}>{log.message || log.path || '-'}</pre>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
