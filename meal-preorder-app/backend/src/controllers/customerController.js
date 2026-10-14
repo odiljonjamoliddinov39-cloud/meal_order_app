@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { notifyOrderPlaced } from '../lib/telegram.js';
 
 const transientDatabaseCodes = new Set(['P1001', 'P1002', 'P1017']);
 const menuCache = {
@@ -386,6 +387,10 @@ export const createOrder = async (req, res) => {
       return order;
     });
 
+    notifyOrderPlaced(result).catch((error) => {
+      console.error('Order notification failed:', error?.message || error);
+    });
+
     return res.status(201).json({
       message: 'Order created successfully',
       order: serializeOrder(result),
@@ -427,5 +432,42 @@ export const getMyOrders = async (req, res) => {
   } catch (error) {
     console.error('getMyOrders error:', error);
     return res.status(500).json({ message: 'Failed to fetch orders' });
+  }
+};
+
+export const pingActivity = (req, res) => res.json({ ok: true });
+
+const MAX_FEEDBACK_PER_DAY = 5;
+
+export const createFeedback = async (req, res) => {
+  try {
+    const comment = String(req.body?.comment || '').trim().slice(0, 1000);
+    const rating = Math.trunc(Number(req.body?.rating || 0));
+
+    if (!comment) {
+      return res.status(400).json({ message: 'Comment is required' });
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await prisma.feedback.count({
+      where: { userId: req.user.id, createdAt: { gte: since } },
+    });
+
+    if (recent >= MAX_FEEDBACK_PER_DAY) {
+      return res.status(429).json({ message: 'Too many feedback messages, try again later' });
+    }
+
+    await prisma.feedback.create({
+      data: {
+        userId: req.user.id,
+        comment,
+        rating: rating >= 1 && rating <= 5 ? rating : null,
+      },
+    });
+
+    return res.status(201).json({ message: 'Feedback received' });
+  } catch (error) {
+    console.error('createFeedback error:', error);
+    return res.status(500).json({ message: 'Failed to save feedback' });
   }
 };

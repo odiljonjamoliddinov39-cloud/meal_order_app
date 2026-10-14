@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { dayKey } from '../lib/activity.js';
 import { clearDiagnostics, getDiagnostics } from '../lib/diagnostics.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -334,11 +335,21 @@ export const getAdminOrders = async (req, res) => {
 
 export const getAdminSummary = async (req, res) => {
   try {
-    const [ordersCount, menuItemsCount, orders] = await Promise.all([
+    const today = dayKey();
+    const weekAgo = dayKey(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
+
+    const [ordersCount, menuItemsCount, orders, startedUsers, activeToday, activeWeek] = await Promise.all([
       prisma.order.count(),
       prisma.menuItem.count(),
       prisma.order.findMany({
         select: { totalAmount: true },
+      }),
+      prisma.user.count({ where: { botStartedAt: { not: null } } }),
+      prisma.userActivityDay.count({ where: { day: today } }),
+      prisma.userActivityDay.findMany({
+        where: { day: { gte: weekAgo } },
+        distinct: ['userId'],
+        select: { userId: true },
       }),
     ]);
 
@@ -351,6 +362,9 @@ export const getAdminSummary = async (req, res) => {
       ordersCount,
       menuItemsCount,
       revenue,
+      startedUsers,
+      activeToday,
+      activeWeek: activeWeek.length,
     });
   } catch (error) {
     console.error('getAdminSummary error:', error);
@@ -537,5 +551,42 @@ export const deleteAdminOrder = async (req, res) => {
     }
 
     return res.status(500).json({ message: 'Failed to delete order' });
+  }
+};
+
+export const getAdminFeedback = async (req, res) => {
+  try {
+    const items = await prisma.feedback.findMany({
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    return res.json(items.map((item) => ({
+      id: item.id,
+      comment: item.comment,
+      rating: item.rating,
+      createdAt: item.createdAt,
+      customerName: getUserDisplayName(item.user),
+      username: item.user?.username || '',
+      telegramId: item.user?.telegramId || '',
+    })));
+  } catch (error) {
+    console.error('getAdminFeedback error:', error);
+    return res.status(500).json({ message: 'Failed to load feedback' });
+  }
+};
+
+export const deleteAdminFeedback = async (req, res) => {
+  try {
+    await prisma.feedback.delete({ where: { id: req.params.id } });
+    return res.json({ message: 'Feedback deleted' });
+  } catch (error) {
+    if (isRecordNotFound(error)) {
+      return res.status(404).json({ message: 'Feedback not found' });
+    }
+
+    console.error('deleteAdminFeedback error:', error);
+    return res.status(500).json({ message: 'Failed to delete feedback' });
   }
 };

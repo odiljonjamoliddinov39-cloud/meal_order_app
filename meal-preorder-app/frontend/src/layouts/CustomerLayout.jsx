@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   getTelegramDisplayName,
@@ -6,6 +6,7 @@ import {
   initTelegramWebApp,
   waitForTelegramUser,
 } from '../api/telegramAuth.js';
+import api from '../api/client.js';
 
 const STORAGE_LANG_KEY = 'meal_app_lang_v2';
 const DEFAULT_LANGUAGE = 'RUS';
@@ -17,6 +18,7 @@ const translations = {
     account: 'Account',
     cart: 'Cart',
     orders: 'Orders',
+    feedback: 'Feedback',
     language: 'Language',
     save: 'Save',
     close: 'Close',
@@ -33,6 +35,7 @@ const translations = {
     account: 'Аккаунт',
     cart: 'Корзина',
     orders: 'Заказы',
+    feedback: 'Отзыв',
     close: 'Закрыть',
     profile: 'Профиль',
     telegramName: 'Имя в Telegram',
@@ -48,6 +51,7 @@ const translations = {
     account: 'Akkaunt',
     cart: 'Savat',
     orders: 'Buyurtmalar',
+    feedback: 'Fikr-mulohaza',
     language: 'Til',
     save: 'Saqlash',
     close: 'Yopish',
@@ -94,6 +98,11 @@ export default function CustomerLayout() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    // Counts this visit towards the admin "active today" number.
+    api.post('/activity/ping').catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -167,6 +176,10 @@ export default function CustomerLayout() {
                   </div>
                 </div>
               </div>
+
+              <Link to="/web/feedback" style={styles.feedbackLink} onClick={closeAll}>
+                {t.feedback}
+              </Link>
 
               <button style={styles.modalPrimary} onClick={closeAll}>
                 {t.close}
@@ -296,6 +309,18 @@ const styles = {
     padding: '18px',
     borderRadius: '20px',
     width: '100%',
+  },
+
+  feedbackLink: {
+    display: 'block',
+    marginTop: '10px',
+    padding: '12px',
+    borderRadius: '12px',
+    background: '#eefbfd',
+    color: '#145962',
+    fontWeight: 800,
+    textAlign: 'center',
+    textDecoration: 'none',
   },
 
   modalPrimary: {
