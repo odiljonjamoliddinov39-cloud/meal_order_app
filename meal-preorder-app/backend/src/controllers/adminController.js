@@ -337,21 +337,51 @@ export const getAdminSummary = async (req, res) => {
   try {
     const today = dayKey();
     const weekAgo = dayKey(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
+    // Day keys are Tashkent calendar days (UTC+5), so order times are matched the same way.
+    const todayStart = new Date(`${today}T00:00:00+05:00`);
+    const weekStart = new Date(`${weekAgo}T00:00:00+05:00`);
 
-    const [ordersCount, menuItemsCount, orders, startedUsers, activeToday, activeWeek] = await Promise.all([
+    const [
+      ordersCount,
+      menuItemsCount,
+      orders,
+      startedUsers,
+      activityToday,
+      activityWeek,
+      orderersToday,
+      orderersWeek,
+    ] = await Promise.all([
       prisma.order.count(),
       prisma.menuItem.count(),
       prisma.order.findMany({
         select: { totalAmount: true },
       }),
       prisma.user.count({ where: { botStartedAt: { not: null } } }),
-      prisma.userActivityDay.count({ where: { day: today } }),
+      prisma.userActivityDay.findMany({
+        where: { day: today },
+        select: { userId: true },
+      }),
       prisma.userActivityDay.findMany({
         where: { day: { gte: weekAgo } },
         distinct: ['userId'],
         select: { userId: true },
       }),
+      prisma.order.findMany({
+        where: { createdAt: { gte: todayStart } },
+        distinct: ['userId'],
+        select: { userId: true },
+      }),
+      prisma.order.findMany({
+        where: { createdAt: { gte: weekStart } },
+        distinct: ['userId'],
+        select: { userId: true },
+      }),
     ]);
+
+    // Anyone who ordered is active, even if they used the app before visit tracking existed.
+    const unionCount = (...lists) => new Set(lists.flat().map((row) => row.userId)).size;
+    const activeToday = unionCount(activityToday, orderersToday);
+    const activeWeek = unionCount(activityWeek, orderersWeek);
 
     const revenue = orders.reduce(
       (sum, order) => sum + Number(order.totalAmount || 0),
@@ -364,7 +394,7 @@ export const getAdminSummary = async (req, res) => {
       revenue,
       startedUsers,
       activeToday,
-      activeWeek: activeWeek.length,
+      activeWeek,
     });
   } catch (error) {
     console.error('getAdminSummary error:', error);
