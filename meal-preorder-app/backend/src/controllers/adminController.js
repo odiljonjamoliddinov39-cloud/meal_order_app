@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { broadcastNewMenuItem } from '../lib/telegram.js';
 import { dayKey } from '../lib/activity.js';
 import { clearDiagnostics, getDiagnostics } from '../lib/diagnostics.js';
 import jwt from 'jsonwebtoken';
@@ -190,6 +191,22 @@ export const createAdminMenuDay = async (req, res) => {
   }
 };
 
+async function announceNewMenuItem(item) {
+  const day = await prisma.menuDay.findUnique({
+    where: { id: item.menuDayId },
+    select: { isOpen: true },
+  });
+
+  if (!day?.isOpen) return;
+
+  const users = await prisma.user.findMany({
+    where: { botStartedAt: { not: null }, telegramId: { not: null } },
+    select: { telegramId: true },
+  });
+
+  await broadcastNewMenuItem(item, users.map((user) => user.telegramId));
+}
+
 export const createAdminMenuItem = async (req, res) => {
   try {
     const {
@@ -226,6 +243,10 @@ export const createAdminMenuItem = async (req, res) => {
         type: type || 'meal',
         isActive: true,
       },
+    });
+
+    announceNewMenuItem(item).catch((error) => {
+      console.error('Menu item announcement failed:', error?.message || error);
     });
 
     return res.status(201).json(serializeItem(item));
