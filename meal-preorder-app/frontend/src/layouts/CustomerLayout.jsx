@@ -128,6 +128,10 @@ export default function CustomerLayout() {
             <div style={styles.brandSub}>{t.themeHint}</div>
           </div>
 
+          <Link to="/web/feedback" style={styles.feedbackButton} aria-label={t.feedback}>
+            💬
+          </Link>
+
           <button style={styles.accountButton} onClick={() => setAccountOpen(true)}>
             {user?.photo_url ? (
               <img src={user.photo_url} alt="profile" style={styles.accountImage} />
@@ -236,6 +240,17 @@ const styles = {
   brandBlock: { flex: 1 },
   brandTitle: { fontWeight: 800 },
   brandSub: { fontSize: '12px' },
+
+  feedbackButton: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,0.6)',
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: '20px',
+    textDecoration: 'none',
+  },
 
   accountButton: {
     width: '44px',
