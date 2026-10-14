@@ -113,6 +113,8 @@ export default function CustomerLayout() {
     setAccountOpen(false);
   }, [location.pathname]);
 
+  const feedbackOpen = location.pathname.replace(/\/+$/, '') === '/web/feedback';
+
   function closeAll() {
     setAccountOpen(false);
   }
@@ -128,7 +130,15 @@ export default function CustomerLayout() {
             <div style={styles.brandSub}>{t.themeHint}</div>
           </div>
 
-          <Link to="/web/feedback" style={styles.feedbackButton} aria-label={t.feedback}>
+          <Link
+            to={feedbackOpen ? '/web' : '/web/feedback'}
+            style={{
+              ...styles.feedbackButton,
+              ...(feedbackOpen ? styles.feedbackButtonActive : null),
+            }}
+            aria-label={t.feedback}
+            aria-pressed={feedbackOpen}
+          >
             💬
           </Link>
 
@@ -250,6 +260,10 @@ const styles = {
     placeItems: 'center',
     fontSize: '20px',
     textDecoration: 'none',
+  },
+
+  feedbackButtonActive: {
+    background: '#1a93f1',
   },
 
   accountButton: {
