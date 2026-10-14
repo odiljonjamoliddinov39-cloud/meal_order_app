@@ -4,6 +4,7 @@ import AdminLayout from './layouts/AdminLayout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
+import FeedbackPage from './pages/FeedbackPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 
@@ -29,6 +30,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="cart" element={<CartPage />} />
         <Route path="orders" element={<OrdersPage />} />
+        <Route path="feedback" element={<FeedbackPage />} />
       </Route>
 
       <Route path="/admin" element={<AdminLayout />}>

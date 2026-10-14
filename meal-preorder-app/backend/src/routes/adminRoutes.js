@@ -14,6 +14,8 @@ import {
   deleteAdminOrder,
   getAdminDiagnostics,
   clearAdminDiagnostics,
+  getAdminFeedback,
+  deleteAdminFeedback,
 } from '../controllers/adminController.js';
 import { requireAdminAuth } from '../middleware/requireAdminAuth.js';
 
@@ -36,5 +38,8 @@ router.delete('/admin/orders/:id', deleteAdminOrder);
 router.get('/admin/summary', getAdminSummary);
 router.get('/admin/diagnostics', getAdminDiagnostics);
 router.delete('/admin/diagnostics', clearAdminDiagnostics);
+
+router.get('/admin/feedback', getAdminFeedback);
+router.delete('/admin/feedback/:id', deleteAdminFeedback);
 
 export default router;

@@ -5,6 +5,8 @@ import api from '../api/client.js';
 export default function AdminDashboardPage() {
   const [days, setDays] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [feedback, setFeedback] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logTotal, setLogTotal] = useState(0);
   const [logHasMore, setLogHasMore] = useState(false);
@@ -40,10 +42,15 @@ export default function AdminDashboardPage() {
     try {
       setLoading(true);
 
-      const [daysRes, ordersRes] = await Promise.all([
+      const [daysRes, ordersRes, summaryRes, feedbackRes] = await Promise.all([
         api.get('/admin/menu/days'),
         api.get('/admin/orders'),
+        api.get('/admin/summary').catch(() => ({ data: null })),
+        api.get('/admin/feedback').catch(() => ({ data: [] })),
       ]);
+
+      setStats(summaryRes.data);
+      setFeedback(Array.isArray(feedbackRes.data) ? feedbackRes.data : []);
 
       setDays(Array.isArray(daysRes.data) ? daysRes.data : []);
       setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
@@ -433,6 +440,51 @@ export default function AdminDashboardPage() {
           {adminMessage}
         </div>
       ) : null}
+
+      <div style={styles.section}>
+        <div style={styles.statsRow}>
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>Нажали /start</div>
+            <div style={styles.statValue}>{stats ? stats.startedUsers : '-'}</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>👁 Активны сегодня</div>
+            <div style={styles.statValue}>{stats ? stats.activeToday : '-'}</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>Активны за 7 дней</div>
+            <div style={styles.statValue}>{stats ? stats.activeWeek : '-'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.section}>
+        <h2 style={styles.sectionTitle}>Отзывы ({feedback.length})</h2>
+        {feedback.length === 0 ? (
+          <p style={styles.sectionSubtitle}>Пока нет отзывов.</p>
+        ) : (
+          feedback.map((entry) => (
+            <div key={entry.id} style={styles.feedbackItem}>
+              <div style={styles.feedbackMeta}>
+                <strong>{entry.customerName || entry.telegramId}</strong>
+                {entry.rating ? ` · ${'★'.repeat(entry.rating)}` : ''}
+                {` · ${new Date(entry.createdAt).toLocaleString('ru-RU')}`}
+              </div>
+              <div>{entry.comment}</div>
+              <button
+                type="button"
+                style={styles.feedbackDelete}
+                onClick={async () => {
+                  await api.delete(`/admin/feedback/${entry.id}`);
+                  setFeedback((prev) => prev.filter((row) => row.id !== entry.id));
+                }}
+              >
+                Удалить
+              </button>
+            </div>
+          ))
+        )}
+      </div>
 
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
@@ -860,6 +912,26 @@ export default function AdminDashboardPage() {
 }
 
 const styles = {
+  statsRow: { display: 'flex', gap: '12px', flexWrap: 'wrap' },
+  statCard: {
+    flex: '1 1 160px',
+    background: '#eef6ff',
+    borderRadius: '14px',
+    padding: '14px 16px',
+  },
+  statLabel: { fontSize: '14px', fontWeight: 700, opacity: 0.8 },
+  statValue: { fontSize: '30px', fontWeight: 800, marginTop: '4px' },
+  feedbackItem: { borderTop: '1px solid #dbe7f3', padding: '10px 0' },
+  feedbackMeta: { fontSize: '13px', opacity: 0.75, marginBottom: '4px' },
+  feedbackDelete: {
+    marginTop: '6px',
+    border: 'none',
+    background: 'transparent',
+    color: '#d64550',
+    cursor: 'pointer',
+    padding: 0,
+    fontWeight: 700,
+  },
   page: {
     minHeight: '100vh',
     padding: '24px',

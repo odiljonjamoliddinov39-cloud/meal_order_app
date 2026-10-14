@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { recordActivity } from '../lib/activity.js';
 
 function readValue(...values) {
   for (const value of values) {
@@ -60,7 +61,7 @@ export default async function requireTelegramAuth(req, res, next) {
       username,
     };
 
-    await prisma.user.upsert({
+    const dbUser = await prisma.user.upsert({
       where: { telegramId: req.user.telegramId },
       update: {
         firstName: req.user.firstName,
@@ -75,6 +76,9 @@ export default async function requireTelegramAuth(req, res, next) {
         role: 'CUSTOMER',
       },
     });
+
+    req.user.id = dbUser.id;
+    recordActivity(dbUser);
 
     return next();
   } catch (error) {

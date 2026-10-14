@@ -4,6 +4,7 @@ import cors from 'cors';
 import customerRoutes from './routes/customerRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { warmMenuCache } from './controllers/customerController.js';
+import { prisma } from './lib/prisma.js';
 import { installConsoleDiagnostics, recordRequestLog } from './lib/diagnostics.js';
 
 const app = express();
@@ -47,6 +48,25 @@ async function callTelegram(method, payload) {
   }
 
   return true;
+}
+
+async function recordBotStart(from, chatId) {
+  const telegramId = String(from?.id || chatId);
+  const profile = {
+    firstName: from?.first_name || null,
+    lastName: from?.last_name || null,
+    username: from?.username || null,
+  };
+
+  try {
+    await prisma.user.upsert({
+      where: { telegramId },
+      update: { ...profile, botStartedAt: new Date() },
+      create: { telegramId, ...profile, role: 'CUSTOMER', botStartedAt: new Date() },
+    });
+  } catch (error) {
+    console.error('recordBotStart failed:', error?.message || error);
+  }
 }
 
 app.use(cors({
@@ -134,6 +154,7 @@ app.post('/telegram/webhook/:secret', async (req, res) => {
 
   try {
     if (text.startsWith('/start')) {
+      await recordBotStart(message.from, chatId);
       await callTelegram('setChatMenuButton', {
         chat_id: chatId,
         menu_button: {
