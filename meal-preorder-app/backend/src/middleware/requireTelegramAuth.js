@@ -74,10 +74,19 @@ export default async function requireTelegramAuth(req, res, next) {
         lastName: req.user.lastName,
         username: req.user.username,
         role: 'CUSTOMER',
+        botStartedAt: new Date(),
       },
     });
 
     req.user.id = dbUser.id;
+
+    if (!dbUser.botStartedAt) {
+      // Anyone opening the mini app got here through the bot.
+      prisma.user
+        .update({ where: { id: dbUser.id }, data: { botStartedAt: new Date() } })
+        .catch(() => {});
+    }
+
     recordActivity(dbUser);
 
     return next();

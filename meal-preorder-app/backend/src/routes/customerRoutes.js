@@ -7,6 +7,7 @@ import {
   getMyOrders,
   pingActivity,
   createFeedback,
+  recordBotStartFromBot,
 } from '../controllers/customerController.js';
 
 const router = Router();
@@ -18,5 +19,7 @@ router.get('/orders/me', requireTelegramAuth, getMyOrders);
 
 router.post('/activity/ping', requireTelegramAuth, pingActivity);
 router.post('/feedback', requireTelegramAuth, createFeedback);
+
+router.post('/bot/start', recordBotStartFromBot);
 
 export default router;

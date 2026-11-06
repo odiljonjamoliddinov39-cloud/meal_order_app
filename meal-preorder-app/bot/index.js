@@ -21,6 +21,29 @@ function normalizeMiniAppUrl(value) {
   return url.toString();
 }
 
+const backendApiUrl = (
+  process.env.BACKEND_API_URL || 'https://mealorderbackend-production.up.railway.app/api'
+).replace(/\/+$/, '');
+
+async function reportStart(from, chatId) {
+  try {
+    const response = await fetch(`${backendApiUrl}/bot/start`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-bot-token': token },
+      body: JSON.stringify({
+        telegramId: from?.id || chatId,
+        firstName: from?.first_name,
+        lastName: from?.last_name,
+        username: from?.username,
+      }),
+    });
+
+    if (!response.ok) console.error('Reporting /start failed:', response.status);
+  } catch (error) {
+    console.error('Reporting /start failed:', error?.message || error);
+  }
+}
+
 const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL);
 
 if (!token) {
@@ -47,6 +70,8 @@ bot.on('message', async (msg) => {
 
   try {
     if (text.startsWith('/start')) {
+      reportStart(msg.from, chatId);
+
       await bot.setChatMenuButton({
         chat_id: chatId,
         menu_button: {

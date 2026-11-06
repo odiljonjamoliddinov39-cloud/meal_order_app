@@ -1,4 +1,6 @@
 import { prisma } from '../lib/prisma.js';
+import crypto from 'crypto';
+import { markBotStarted } from '../lib/activity.js';
 import { notifyOrderPlaced } from '../lib/telegram.js';
 
 const transientDatabaseCodes = new Set(['P1001', 'P1002', 'P1017']);
@@ -469,5 +471,35 @@ export const createFeedback = async (req, res) => {
   } catch (error) {
     console.error('createFeedback error:', error);
     return res.status(500).json({ message: 'Failed to save feedback' });
+  }
+};
+
+// Called by the polling bot service when someone sends /start. The bot token is the shared secret.
+export const recordBotStartFromBot = async (req, res) => {
+  const expected = Buffer.from(process.env.BOT_TOKEN || '');
+  const received = Buffer.from(String(req.get('x-bot-token') || ''));
+
+  if (
+    expected.length === 0 ||
+    expected.length !== received.length ||
+    !crypto.timingSafeEqual(expected, received)
+  ) {
+    return res.sendStatus(403);
+  }
+
+  const telegramId = String(req.body?.telegramId || '').replace(/[^\d]/g, '');
+  if (!telegramId) return res.status(400).json({ message: 'telegramId is required' });
+
+  try {
+    await markBotStarted({
+      telegramId,
+      firstName: String(req.body.firstName || '').slice(0, 80),
+      lastName: String(req.body.lastName || '').slice(0, 80),
+      username: String(req.body.username || '').slice(0, 80),
+    });
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('recordBotStartFromBot error:', error);
+    return res.status(500).json({ message: 'Failed to record start' });
   }
 };
