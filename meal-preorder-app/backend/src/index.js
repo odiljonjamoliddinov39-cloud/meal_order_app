@@ -4,7 +4,7 @@ import cors from 'cors';
 import customerRoutes from './routes/customerRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { warmMenuCache } from './controllers/customerController.js';
-import { prisma } from './lib/prisma.js';
+import { markBotStarted } from './lib/activity.js';
 import { installConsoleDiagnostics, recordRequestLog } from './lib/diagnostics.js';
 
 const app = express();
@@ -51,18 +51,12 @@ async function callTelegram(method, payload) {
 }
 
 async function recordBotStart(from, chatId) {
-  const telegramId = String(from?.id || chatId);
-  const profile = {
-    firstName: from?.first_name || null,
-    lastName: from?.last_name || null,
-    username: from?.username || null,
-  };
-
   try {
-    await prisma.user.upsert({
-      where: { telegramId },
-      update: { ...profile, botStartedAt: new Date() },
-      create: { telegramId, ...profile, role: 'CUSTOMER', botStartedAt: new Date() },
+    await markBotStarted({
+      telegramId: from?.id || chatId,
+      firstName: from?.first_name,
+      lastName: from?.last_name,
+      username: from?.username,
     });
   } catch (error) {
     console.error('recordBotStart failed:', error?.message || error);

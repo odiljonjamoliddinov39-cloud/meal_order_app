@@ -28,3 +28,23 @@ export async function recordActivity(user) {
     console.error('recordActivity failed:', error?.message || error);
   }
 }
+
+// Marks a user as having started the bot, creating the user if they are new.
+export async function markBotStarted({ telegramId, firstName, lastName, username }) {
+  const profile = {
+    firstName: firstName || null,
+    lastName: lastName || null,
+    username: username || null,
+  };
+
+  return prisma.user.upsert({
+    where: { telegramId: String(telegramId) },
+    update: { ...profile, botStartedAt: new Date() },
+    create: {
+      telegramId: String(telegramId),
+      ...profile,
+      role: 'CUSTOMER',
+      botStartedAt: new Date(),
+    },
+  });
+}
